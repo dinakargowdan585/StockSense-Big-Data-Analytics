@@ -141,22 +141,21 @@ Open your browser to: **`http://localhost:8501`**
 ```
 stock-analysis-dashboard/
 ├── dashboard/
-│   └── app.py                     # Main Streamlit Big Data dashboard (8 pages)
+│   └── app.py                     # Main Streamlit Financial Terminal (7 modules)
 ├── src/
 │   ├── __init__.py
 │   ├── spark_engine.py            # Apache Spark session manager & distributed pipeline
 │   ├── analytics.py               # Descriptive, Diagnostic, and Prescriptive analytics
 │   ├── ml_predictor.py            # Machine Learning training, evaluation & forecasting
 │   ├── benchmarking.py            # Empirical Pandas vs. PySpark benchmark suite
-│   ├── data_fetcher.py            # Yahoo Finance ingestion & local dataset handler
-│   └── analyzer.py                # Core financial calculations (preserved)
+│   └── data_fetcher.py            # Yahoo Finance ingestion & local dataset handler
 ├── data/
 │   ├── sample/                    # Pre-generated offline CSV & Parquet files
 │   └── processed/                 # Partitioned Parquet output from Spark jobs
-├── notebooks/
-│   └── stock_analysis.ipynb       # Exploratory Jupyter research notebook
 ├── scripts/
 │   └── generate_sample_data.py    # Offline dataset generation script
+├── tests/
+│   └── test_full_app.py           # Automated integration test suite
 ├── requirements.txt               # Updated dependency specifications
 ├── streamlit_app.py               # Root deployment entrypoint
 └── README.md                      # Academic documentation & execution guide
