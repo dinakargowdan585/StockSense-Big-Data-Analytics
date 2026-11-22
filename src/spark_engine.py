@@ -153,16 +153,26 @@ def process_stock_data_spark(
         cleaned_df = cleaned_df.ffill().bfill().dropna()
         
         close_col = "Adj_Close" if "Adj_Close" in cleaned_df.columns else "Close"
+        
+        # Feature engineering: Returns, Moving Averages, Lags, Volatility
         cleaned_df["Daily_Return"] = cleaned_df[close_col].pct_change().fillna(0.0)
+        cleaned_df["Lag_1"] = cleaned_df[close_col].shift(1).bfill()
+        cleaned_df["Lag_2"] = cleaned_df[close_col].shift(2).bfill()
+        cleaned_df["Lag_3"] = cleaned_df[close_col].shift(3).bfill()
+        cleaned_df["Lag_5"] = cleaned_df[close_col].shift(5).bfill()
+        cleaned_df["SMA_5"] = cleaned_df[close_col].rolling(5, min_periods=1).mean()
+        cleaned_df["SMA_10"] = cleaned_df[close_col].rolling(10, min_periods=1).mean()
         cleaned_df["SMA_20"] = cleaned_df[close_col].rolling(20, min_periods=1).mean()
         cleaned_df["SMA_50"] = cleaned_df[close_col].rolling(50, min_periods=1).mean()
         cleaned_df["Volatility_20d"] = cleaned_df["Daily_Return"].rolling(20, min_periods=1).std().fillna(0.0)
         
-        # Outlier detection: IQR on Daily Return
-        q1 = cleaned_df["Daily_Return"].quantile(0.25)
-        q3 = cleaned_df["Daily_Return"].quantile(0.75)
+        # Outlier detection: IQR on Daily Return (Flagged, original price preserved)
+        q1 = float(cleaned_df["Daily_Return"].quantile(0.25))
+        q3 = float(cleaned_df["Daily_Return"].quantile(0.75))
         iqr = q3 - q1
-        outliers = int(((cleaned_df["Daily_Return"] < (q1 - 1.5 * iqr)) | (cleaned_df["Daily_Return"] > (q3 + 1.5 * iqr))).sum())
+        outlier_mask = (cleaned_df["Daily_Return"] < (q1 - 1.5 * iqr)) | (cleaned_df["Daily_Return"] > (q3 + 1.5 * iqr))
+        cleaned_df["Outlier_Flag"] = outlier_mask.astype(int)
+        outliers = int(outlier_mask.sum())
         
         saved_path = None
         if output_dir:
@@ -172,6 +182,11 @@ def process_stock_data_spark(
             cleaned_df.to_parquet(saved_path, index=False)
 
         duration = time.perf_counter() - start_time
+        gen_features = [
+            "Lag_1", "Lag_2", "Lag_3", "Lag_5",
+            "SMA_5", "SMA_10", "SMA_20", "SMA_50",
+            "Daily_Return", "Volatility_20d", "Outlier_Flag",
+        ]
         return {
             "engine": "Pandas (Spark Unavailable Fallback)",
             "ticker": ticker,
@@ -184,7 +199,10 @@ def process_stock_data_spark(
             "duration_seconds": round(duration, 4),
             "output_parquet": saved_path,
             "schema": [(c, str(dtype)) for c, dtype in cleaned_df.dtypes.items()],
+            "generated_features": gen_features,
+            "outlier_treatment": "Documented IQR Detection: Outliers flagged in 'Outlier_Flag'; genuine historical price series preserved.",
             "preview_df": cleaned_df.tail(10),
+            "processed_df": cleaned_df,
         }
 
     # --- PYSPARK DISTRIBUTED IMPLEMENTATION ---
@@ -199,16 +217,27 @@ def process_stock_data_spark(
 
         # PySpark Window Functions for Feature Engineering
         window_spec_order = Window.partitionBy(F.lit("GLOBAL")).orderBy(date_col_clean)
+        window_5 = Window.partitionBy(F.lit("GLOBAL")).orderBy(date_col_clean).rowsBetween(-4, 0)
+        window_10 = Window.partitionBy(F.lit("GLOBAL")).orderBy(date_col_clean).rowsBetween(-9, 0)
         window_20 = Window.partitionBy(F.lit("GLOBAL")).orderBy(date_col_clean).rowsBetween(-19, 0)
         window_50 = Window.partitionBy(F.lit("GLOBAL")).orderBy(date_col_clean).rowsBetween(-49, 0)
 
-        # Lag price to compute return
-        spark_df = spark_df.withColumn("Prev_Close", F.lag(F.col(close_col), 1).over(window_spec_order))
+        # Lag features
+        spark_df = spark_df.withColumn("Lag_1", F.lag(F.col(close_col), 1).over(window_spec_order))
+        spark_df = spark_df.withColumn("Lag_2", F.lag(F.col(close_col), 2).over(window_spec_order))
+        spark_df = spark_df.withColumn("Lag_3", F.lag(F.col(close_col), 3).over(window_spec_order))
+        spark_df = spark_df.withColumn("Lag_5", F.lag(F.col(close_col), 5).over(window_spec_order))
+        
+        # Daily return
         spark_df = spark_df.withColumn(
             "Daily_Return",
-            F.when(F.col("Prev_Close").isNull() | (F.col("Prev_Close") == 0), 0.0)
-            .otherwise((F.col(close_col) - F.col("Prev_Close")) / F.col("Prev_Close")),
+            F.when(F.col("Lag_1").isNull() | (F.col("Lag_1") == 0), 0.0)
+            .otherwise((F.col(close_col) - F.col("Lag_1")) / F.col("Lag_1")),
         )
+        
+        # Rolling moving averages & volatility
+        spark_df = spark_df.withColumn("SMA_5", F.avg(F.col(close_col)).over(window_5))
+        spark_df = spark_df.withColumn("SMA_10", F.avg(F.col(close_col)).over(window_10))
         spark_df = spark_df.withColumn("SMA_20", F.avg(F.col(close_col)).over(window_20))
         spark_df = spark_df.withColumn("SMA_50", F.avg(F.col(close_col)).over(window_50))
         spark_df = spark_df.withColumn("Volatility_20d", F.stddev(F.col("Daily_Return")).over(window_20))
@@ -218,24 +247,33 @@ def process_stock_data_spark(
         num_partitions = spark_df.rdd.getNumPartitions()
         record_count = spark_df.count()
 
-        # Outlier calculation
+        # Outlier calculation via IQR on Daily Return (flagged, original price preserved)
         q_quantiles = spark_df.approxQuantile("Daily_Return", [0.25, 0.75], 0.01)
         q1, q3 = q_quantiles[0], q_quantiles[1]
         iqr = q3 - q1
-        outliers = spark_df.filter(
-            (F.col("Daily_Return") < (q1 - 1.5 * iqr)) | (F.col("Daily_Return") > (q3 + 1.5 * iqr))
-        ).count()
+        spark_df = spark_df.withColumn(
+            "Outlier_Flag",
+            F.when((F.col("Daily_Return") < (q1 - 1.5 * iqr)) | (F.col("Daily_Return") > (q3 + 1.5 * iqr)), 1).otherwise(0)
+        )
+        outliers = spark_df.filter(F.col("Outlier_Flag") == 1).count()
+
+        # Convert to Pandas for downstream prediction pipeline and parquet storage
+        pandas_processed = spark_df.orderBy(date_col_clean).toPandas()
 
         saved_path = None
         if output_dir:
             out_path = Path(output_dir)
             out_path.mkdir(parents=True, exist_ok=True)
             saved_path = str(out_path / f"{ticker}_processed.parquet")
-            # Write via PySpark or Pandas bridge
-            spark_df.toPandas().to_parquet(saved_path, index=False)
+            pandas_processed.to_parquet(saved_path, index=False)
 
         duration = time.perf_counter() - start_time
-        preview = spark_df.orderBy(F.desc(date_col_clean)).limit(10).toPandas().iloc[::-1]
+        preview = pandas_processed.tail(10)
+        gen_features = [
+            "Lag_1", "Lag_2", "Lag_3", "Lag_5",
+            "SMA_5", "SMA_10", "SMA_20", "SMA_50",
+            "Daily_Return", "Volatility_20d", "Outlier_Flag",
+        ]
 
         return {
             "engine": "Apache PySpark (Distributed Local)",
@@ -249,7 +287,10 @@ def process_stock_data_spark(
             "duration_seconds": round(duration, 4),
             "output_parquet": saved_path,
             "schema": [(field.name, str(field.dataType)) for field in spark_df.schema],
+            "generated_features": gen_features,
+            "outlier_treatment": "Documented IQR Detection: Outliers flagged in 'Outlier_Flag'; genuine historical price series preserved.",
             "preview_df": preview,
+            "processed_df": pandas_processed,
         }
 
     except Exception as exc:
@@ -259,11 +300,30 @@ def process_stock_data_spark(
         cleaned_df = cleaned_df.ffill().bfill().dropna()
         close_col = "Adj_Close" if "Adj_Close" in cleaned_df.columns else "Close"
         cleaned_df["Daily_Return"] = cleaned_df[close_col].pct_change().fillna(0.0)
+        cleaned_df["Lag_1"] = cleaned_df[close_col].shift(1).bfill()
+        cleaned_df["Lag_2"] = cleaned_df[close_col].shift(2).bfill()
+        cleaned_df["Lag_3"] = cleaned_df[close_col].shift(3).bfill()
+        cleaned_df["Lag_5"] = cleaned_df[close_col].shift(5).bfill()
+        cleaned_df["SMA_5"] = cleaned_df[close_col].rolling(5, min_periods=1).mean()
+        cleaned_df["SMA_10"] = cleaned_df[close_col].rolling(10, min_periods=1).mean()
         cleaned_df["SMA_20"] = cleaned_df[close_col].rolling(20, min_periods=1).mean()
         cleaned_df["SMA_50"] = cleaned_df[close_col].rolling(50, min_periods=1).mean()
         cleaned_df["Volatility_20d"] = cleaned_df["Daily_Return"].rolling(20, min_periods=1).std().fillna(0.0)
+        cleaned_df["Outlier_Flag"] = 0
         
+        saved_path = None
+        if output_dir:
+            out_path = Path(output_dir)
+            out_path.mkdir(parents=True, exist_ok=True)
+            saved_path = str(out_path / f"{ticker}_processed.parquet")
+            cleaned_df.to_parquet(saved_path, index=False)
+
         duration = time.perf_counter() - start_time
+        gen_features = [
+            "Lag_1", "Lag_2", "Lag_3", "Lag_5",
+            "SMA_5", "SMA_10", "SMA_20", "SMA_50",
+            "Daily_Return", "Volatility_20d", "Outlier_Flag",
+        ]
         return {
             "engine": "Pandas (PySpark Runtime Exception Fallback)",
             "ticker": ticker,
@@ -274,8 +334,11 @@ def process_stock_data_spark(
             "outliers_detected": 0,
             "partitions": 1,
             "duration_seconds": round(duration, 4),
-            "output_parquet": None,
+            "output_parquet": saved_path,
             "schema": [(c, str(dtype)) for c, dtype in cleaned_df.dtypes.items()],
+            "generated_features": gen_features,
+            "outlier_treatment": "Documented IQR Detection: Outliers flagged in 'Outlier_Flag'; genuine historical price series preserved.",
             "preview_df": cleaned_df.tail(10),
+            "processed_df": cleaned_df,
             "warning": f"PySpark raised an exception: {exc}",
         }

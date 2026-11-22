@@ -6,171 +6,113 @@
 [![Scikit-Learn](https://img.shields.io/badge/Scikit--Learn-ML-F7931E?logo=scikitlearn&logoColor=white)](https://scikit-learn.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](#license)
 
-**StockSense** is an end-to-end academic Big Data Analytics and Machine Learning platform for equity market intelligence. It demonstrates large-scale financial data ingestion, distributed preprocessing and window transformations using **Apache Spark (PySpark)**, multi-asset statistical analytics, chronological predictive modeling, and empirical benchmarking between single-node Pandas and distributed Spark execution.
+**StockSense** is an academic Big Data analytics and machine learning application dedicated to **Stock Market Prediction**. It demonstrates end-to-end distributed data engineering using **Apache PySpark 3.5**, feature engineering over distributed window partitions, columnar **Apache Parquet** storage, chronological train/test partitioning without data leakage, and multi-model forecasting benchmarked against a persistence baseline.
 
 ---
 
-## 🎯 Academic Project Objectives
+## 🎯 Academic Project Identity & Objectives
 
-1. **Large-Scale Financial Ingestion:** Ingest historical OHLCV data across US Equities (NYSE/NASDAQ) and Indian National Stock Exchange (NSE) assets, with support for CSV, Parquet, and uploaded datasets.
-2. **Distributed Data Processing:** Leverage Apache Spark DataFrames, partition management, and window functions (`F.lag`, `F.avg`, `F.stddev`) for feature engineering without single-machine memory bottlenecks.
-3. **Four Pillars of Analytics:**
-   - **Descriptive Analytics:** Statistical moments (Mean, Variance, Skewness, Kurtosis), price distributions, and monthly returns.
-   - **Diagnostic Analytics:** Value-at-Risk (95% & 99% VaR), Conditional VaR (CVaR), maximum drawdown curves, and volume/price shock anomaly detection.
-   - **Predictive Analytics:** Next-day stock price forecasting using chronological cross-validation with zero future-data leakage.
-   - **Prescriptive Analytics:** Rule-based quantitative market signals (Golden/Death Cross, RSI overbought/oversold, Bollinger Band bounds, and risk classification tiers).
-4. **Empirical Big Data Benchmarking:** Measure real wall-clock latency, partition scalability, and throughput comparing in-memory Pandas vs. distributed PySpark.
+- **Primary Objective:** Big Data Analytics in Stock Market Prediction.
+- **Stock Universe:** Global tech leaders (`NVDA`, `AAPL`, `MSFT`) and Indian Blue-Chips on the National Stock Exchange (`RELIANCE.NS`, `TCS.NS`).
+- **Core Workflow:**
+  $$\text{Stock Selection} \to \text{Ingestion} \to \text{PySpark Validation} \to \text{Feature Engineering} \to \text{Parquet Sink} \to \text{Chronological ML} \to \text{Prediction Dashboard}$$
 
 ---
 
-## 🌐 The Five Vs of Big Data Demonstrated
+## 📱 Focused 4-Page Application Architecture
+
+The application is structured into four focused pages:
+
+### 1. Prediction Dashboard (Primary Landing Page)
+- **Stock Selector:** Instantly switches between `NVDA`, `AAPL`, `MSFT`, `RELIANCE.NS`, and `TCS.NS`.
+- **Data Source Indicator:** Transparently displays whether data is `Live Market Data (Yahoo Finance API)`, `Cached Ingestion`, or `Offline Sample Dataset`.
+- **Latest Closing Price:** Prominent real-time closing price with day delta and market identification.
+- **Historical Price Chart:** Interactive Plotly chart with 20-day and 50-day moving averages.
+- **Prediction Controls:** Horizon selector (1, 5, 10, 15, 30 days) and Model selector.
+- **Dominant Prediction Card:** Displays predicted future price, expected price movement ($), and expected percentage change (%).
+- **Out-of-Sample Performance Chart:** Visualizes ground truth actual prices versus model forecasts over the chronological test period.
+- **Prediction Summary & Feature Weights:** Feature contribution bar chart explaining the inputs behind the model.
+
+### 2. Data Processing (Big Data PySpark Pipeline)
+- **5-Stage Visual Workflow:** Ingestion $\to$ Schema Validation $\to$ Missing-Value Imputation $\to$ IQR Outlier Detection $\to$ Window Feature Engineering $\to$ Snappy Parquet Storage.
+- **Cluster Telemetry:** Input record count, output record count, duplicates removed, missing values handled, partitions (4), and execution duration.
+- **Documented Outlier Treatment:** IQR filtering flags anomalies in the `Outlier_Flag` column without silently deleting genuine extreme market days, preserving original price history.
+- **Engine Transparency:** Explicitly labels `Apache PySpark (Distributed Local)` or `Pandas Fallback`.
+- **Engineered Features:** Lags ($t-1, t-2, t-3, t-5$), moving averages ($SMA_5, SMA_{10}, SMA_{20}, SMA_{50}$), daily returns, and 20-day rolling volatility.
+- **Before & After Previews:** Compares raw ingested schema against the processed feature-rich Parquet dataset.
+
+### 3. Model Evaluation (Out-of-Sample Benchmarking)
+- **Chronological 80/20 Partition:** Strictly enforces time-ordered splitting to prevent lookahead data leakage.
+- **Models Evaluated:** Linear Regression (Statistical Baseline), Random Forest Regressor (Ensemble Bagging), and Gradient Boosting Regressor (Ensemble Boosting).
+- **Naive Persistence Baseline:** Benchmarks every model against $Close_t = Close_{t-1}$.
+- **Metrics Evaluated:** Mean Absolute Error (MAE), Root Mean Squared Error (RMSE), $R^2$ Score, and Directional Accuracy (%).
+- **Best Model Identification:** Dynamically selects the top performer based on out-of-sample test results (never training performance).
+- **Actual vs. Multi-Model Overlay Chart:** Overlays all models and the baseline on the test set.
+
+### 4. Project Information (Academic ABL Dossier)
+- Problem statement and proposed solution.
+- System architecture diagram.
+- 5Vs of Big Data contextualized for financial markets (Volume, Velocity, Variety, Veracity, Value).
+- Role of Apache Spark (Catalyst optimizer, distributed window aggregations, out-of-core scalability).
+- Role of Machine Learning (capturing nonlinear interactions between momentum, moving averages, and volatility).
+- Academic limitations and future scope.
+
+---
+
+## 🌐 The 5Vs of Big Data in Stock Market Prediction
 
 | Big Data 'V' | Implementation in StockSense |
 | :--- | :--- |
-| **Volume** | Scalable multi-year historical datasets spanning hundreds of thousands of financial records; partitioned PySpark execution handles datasets exceeding single-node RAM. |
-| **Velocity** | Automated ingestion cadence via Yahoo Finance API with dynamic caching (`@st.cache_data`) and on-demand live market refresh. |
-| **Variety** | Multi-modal data ingestion: binary Apache Parquet files, structured tabular CSV, nested MultiIndex market arrays, and company metadata. |
-| **Veracity** | Robust data hygiene pipeline: duplicate timestamp elimination, backward/forward holiday imputation, schema type enforcement, and IQR return outlier detection. |
-| **Value** | Actionable quantitative output: probabilistic next-day price forecasts, risk tier classifications, and empirical distributed performance benchmarks. |
+| **Volume** | Multi-year historical trade records; PySpark partitions computation across distributed workers, preventing single-node RAM saturation. |
+| **Velocity** | Live API feeds via Yahoo Finance with on-demand refresh and caching. |
+| **Variety** | Multi-modal ingestion: Snappy columnar Parquet, structured CSV, and nested market arrays. |
+| **Veracity** | Duplicate timestamp elimination, forward/backward null imputation, and IQR anomaly tagging. |
+| **Value** | Probabilistic future price estimates, directional movement conviction, and empirical test benchmarking. |
 
 ---
 
-## 🏗️ System Architecture
+## 🛠️ Tech Stack & Hardware Compatibility
 
+- **Python:** 3.12
+- **Distributed Engine:** Apache PySpark 3.5.9 (configured with `local[2]`, 1GB driver memory, 4 shuffle partitions for 4GB RAM laptop compatibility)
+- **Storage:** Apache Parquet (Snappy compressed columnar format in `data/processed/`)
+- **Machine Learning:** Scikit-Learn (Linear Regression, Random Forest, Gradient Boosting)
+- **Frontend / UI:** Streamlit with custom institutional dark terminal CSS
+- **Visualizations:** Plotly Graph Objects
+
+---
+
+## 🚀 Quickstart & Application Launch
+
+### 1. Launch the Streamlit Dashboard
+```bash
+streamlit run dashboard/app.py --server.port 8501
 ```
-┌────────────────────────────────────────────────────────────────────────┐
-│                              DATA SOURCES                              │
-│   Yahoo Finance API  ·  Indian NSE (.NS)  ·  Local CSV & Parquet Files │
-└───────────────────────────────────┬────────────────────────────────────┘
-                                    │
-                                    ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│                   INGESTION & DATA HYGIENE PIPELINE                    │
-│   • Strict Schema Casting (Timestamp, DoubleType)                      │
-│   • Holiday Imputation & Duplicate Timestamp Deduplication             │
-│   • Interquartile Range (IQR) Outlier Detection (Q1 - 1.5*IQR)         │
-└───────────────────────────────────┬────────────────────────────────────┘
-                                    │
-                                    ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│                  DISTRIBUTED APACHE SPARK ENGINE                       │
-│   • PySpark DataFrame Operations (Master: local[2], Partitions: 4)     │
-│   • Distributed Window Aggregations (Lag-1 returns, SMA 20, SMA 50)    │
-│   • Optimized Columnar Apache Parquet Serialization (data/processed/)  │
-└───────────────────┬────────────────────────────────┬───────────────────┘
-                    │                                │
-                    ▼                                ▼
-┌───────────────────────────────────────┐ ┌──────────────────────────────┐
-│           ANALYTICS ENGINE            │ │   MACHINE LEARNING ENGINE    │
-│ • Descriptive: Moments & Returns      │ │ • Chronological 80/20 Split  │
-│ • Diagnostic: VaR, Drawdown, Anomalies│ │ • Random Forest Regressor    │
-│ • Prescriptive: Rule Signals & Tiers  │ │ • Linear Regression Baseline │
-│                                       │ │ • Gradient Boosting Regressor│
-└───────────────────┬───────────────────┘ └──────────────┬───────────────┘
-                    │                                    │
-                    └─────────────────┬──────────────────┘
-                                      │
-                                      ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│                   STREAMLIT FINANCIAL DASHBOARD UI                     │
-│  Market Overview · Stock Deep Dive · Spark Pipeline · ML Prediction   │
-│         Performance Benchmarking Suite · Analytical Reports            │
-└────────────────────────────────────────────────────────────────────────┘
+Open **`http://localhost:8501`** in your browser.
+
+### 2. Run the Automated Verification Suite
+```bash
+python tests/test_full_app.py
 ```
 
 ---
 
-## 🚀 Installation & Local Execution
-
-### 1. Prerequisites
-- **Python:** 3.10 to 3.12
-- **Java:** OpenJDK 11 or 17 (Required for Apache Spark runtime)
-
-Verify Java installation:
-```bash
-java -version
-```
-
-### 2. Setup Virtual Environment
-```bash
-cd stock-analysis-dashboard
-
-# Create virtual environment
-python3 -m venv .venv
-
-# Activate virtual environment
-source .venv/bin/activate       # macOS / Linux
-# .venv\Scripts\activate        # Windows (PowerShell)
-
-# Install required dependencies
-pip install -r requirements.txt
-```
-
-### 3. Generate Offline Sample Datasets (Optional but Recommended)
-Populate the `data/sample/` directory with local CSV and Parquet datasets for offline operation:
-```bash
-python scripts/generate_sample_data.py
-```
-
-### 4. Launch the Dashboard
-```bash
-streamlit run dashboard/app.py
-```
-Open your browser to: **`http://localhost:8501`**
-
----
-
-## 🖥️ Dashboard Page Navigation
-
-1. **🌐 Market Overview:** Multi-asset snapshot cards, normalized Base = 100 relative performance chart, and comparative performance rankings.
-2. **📈 Stock Analysis:** Single-equity deep dive with interactive OHLCV Candlesticks, 20/50-day Simple Moving Averages, volume profiles, and return histograms.
-3. **⚡ Big Data Processing:** Spark ingestion metrics, distributed window transformations, schema inspection, IQR outlier detection, and Parquet storage verification.
-4. **🔬 Big Data Analytics:**
-   - *Descriptive:* Distribution moments, price statistics, and monthly return aggregations.
-   - *Diagnostic:* Value-at-Risk (95% & 99%), Conditional VaR (CVaR), maximum drawdown curves, and Z-score anomaly detection.
-   - *Prescriptive:* Rule-based quantitative signals (Golden/Death Cross, RSI 14 momentum, Bollinger Bands, and risk tiers).
-5. **🤖 Stock Prediction:** Chronological train/test validation, actual vs. predicted price visualization, residual error distributions, and comparative evaluation across Random Forest, Linear Regression, and Gradient Boosting.
-6. **⏱️ Performance Benchmark:** Real empirical wall-clock timing tests comparing Pandas against Apache PySpark across GroupBy aggregations, window functions, and multi-predicate filtering.
-7. **📑 Reports & Export:** Automated executive briefing generation, with one-click export for cleaned CSV, Parquet, and Markdown summary reports.
-8. **🎓 About Project:** Comprehensive academic presentation detailing project architecture, problem statement, methodology, and the 5 Vs of Big Data.
-
----
-
-## 📂 Project Repository Structure
+## 📂 Repository Structure
 
 ```
 stock-analysis-dashboard/
 ├── dashboard/
-│   └── app.py                     # Main Streamlit Financial Terminal (7 modules)
+│   └── app.py                  # Focused 4-Page Streamlit Financial Terminal
 ├── src/
-│   ├── __init__.py
-│   ├── spark_engine.py            # Apache Spark session manager & distributed pipeline
-│   ├── analytics.py               # Descriptive, Diagnostic, and Prescriptive analytics
-│   ├── ml_predictor.py            # Machine Learning training, evaluation & forecasting
-│   ├── benchmarking.py            # Empirical Pandas vs. PySpark benchmark suite
-│   └── data_fetcher.py            # Yahoo Finance ingestion & local dataset handler
+│   ├── spark_engine.py         # PySpark 3.5 Distributed ETL & Feature Engineering
+│   ├── ml_predictor.py         # Chronological ML Estimators & Naive Baseline
+│   └── data_fetcher.py         # Resilient Live API & Offline Parquet Ingestion
 ├── data/
-│   ├── sample/                    # Pre-generated offline CSV & Parquet files
-│   └── processed/                 # Partitioned Parquet output from Spark jobs
-├── scripts/
-│   └── generate_sample_data.py    # Offline dataset generation script
+│   ├── sample/                 # 10 Pre-cached Offline Equities (.parquet & .csv)
+│   └── processed/              # Parquet Output from PySpark Pipeline
 ├── tests/
-│   └── test_full_app.py           # Automated integration test suite
-├── requirements.txt               # Updated dependency specifications
-├── streamlit_app.py               # Root deployment entrypoint
-└── README.md                      # Academic documentation & execution guide
+│   └── test_full_app.py        # Automated 5-stage end-to-end verification suite
+├── PRESENTATION_GUIDE.md       # 5-Mark ABL presentation pitch & viva cheat sheet
+├── BLUEPRINTS.md               # Complete technical blueprints & element catalog
+└── requirements.txt            # Python dependencies
 ```
-
----
-
-## 🔬 Academic Limitations & Engineering Notes
-
-1. **Local Spark Deployment:** For reproducible academic demonstration on standard laptops, Spark runs in `local[2]` master mode rather than a distributed multi-node Hadoop cluster.
-2. **Pandas vs. PySpark Trade-off:** On modest in-memory datasets (< 50,000 records), Pandas executed natively in C exhibits lower latency than PySpark due to fixed JVM initialization, Py4J serialization, and task scheduling overhead. The benchmark suite demonstrates where the horizontal scaling crossover point emerges.
-3. **Stationarity in Financial Forecasting:** Daily equity prices are non-stationary time series; models predict next-day probabilistic price tendencies based on historical momentum and volatility rather than guaranteed outcomes.
-
----
-
-## 📜 License
-
-This project is licensed under the **MIT License**.
