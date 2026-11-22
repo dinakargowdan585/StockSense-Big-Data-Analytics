@@ -30,6 +30,15 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
+import importlib
+import src.data_fetcher
+import src.spark_engine
+import src.ml_predictor
+
+importlib.reload(src.data_fetcher)
+importlib.reload(src.spark_engine)
+importlib.reload(src.ml_predictor)
+
 from src.data_fetcher import (
     NSE_PRESETS,
     US_PRESETS,
@@ -1153,7 +1162,7 @@ elif page == "Model Evaluation":
                     Role of the Persistence Baseline
                 </div>
                 <p style="font-size: 0.82rem; color: #94a3b8; line-height: 1.5; margin: 0;">
-                    In financial econometrics (Fama's Efficient Market Hypothesis), daily stock prices closely resemble a martingale process ($Price_t \approx Price_{t-1} + \epsilon$). Comparing machine learning models against a <b>Naive Persistence Baseline</b> ensures that models are evaluated for genuine statistical edge rather than merely tracking autocorrelation.
+                    In financial econometrics (Fama's Efficient Market Hypothesis), daily stock prices closely resemble a martingale process ($Price_t \\approx Price_{t-1} + \\epsilon$). Comparing machine learning models against a <b>Naive Persistence Baseline</b> ensures that models are evaluated for genuine statistical edge rather than merely tracking autocorrelation.
                 </p>
             </div>
             """,
