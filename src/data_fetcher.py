@@ -1,25 +1,39 @@
-"""Utilities for fetching and cleaning stock market data."""
+"""Utilities for fetching, cleaning, and storing stock market data for StockSense.
+
+Supports:
+- US Market stocks (VOO, NVDA, AAPL, MSFT, etc.)
+- Indian NSE stocks using Yahoo Finance tickers (RELIANCE.NS, TCS.NS, INFY.NS, etc.)
+- Historical CSV and Parquet file loading
+- Local offline datasets
+- Streamlit file upload parsing
+"""
 
 from __future__ import annotations
 
-from typing import Any
+import io
+from pathlib import Path
+from typing import Any, Optional
 
 import pandas as pd
 import yfinance as yf
 
+# Market Presets
+US_PRESETS = ["VOO", "QQQM", "NVDA", "AAPL", "MSFT", "GOOGL", "AMZN", "TSLA", "SPY"]
+NSE_PRESETS = [
+    "RELIANCE.NS",
+    "TCS.NS",
+    "INFY.NS",
+    "HDFCBANK.NS",
+    "ICICIBANK.NS",
+    "TATAMOTORS.NS",
+    "SBIN.NS",
+    "ITC.NS",
+]
+ALL_DEFAULT_TICKERS = US_PRESETS[:4] + NSE_PRESETS[:2]
+
 
 def _validate_tickers(tickers: list[str]) -> list[str]:
-    """Validate and normalize a list of ticker symbols.
-
-    Args:
-        tickers: Raw list of ticker symbols.
-
-    Returns:
-        A cleaned list of uppercase ticker symbols with duplicates removed.
-
-    Raises:
-        ValueError: If tickers is empty or contains invalid values.
-    """
+    """Validate and normalize a list of ticker symbols."""
     if not isinstance(tickers, list) or not tickers:
         raise ValueError("tickers must be a non-empty list of stock symbols.")
 
@@ -35,19 +49,9 @@ def _validate_tickers(tickers: list[str]) -> list[str]:
 
 
 def _clean_ohlcv_data(raw_data: pd.DataFrame) -> pd.DataFrame:
-    """Clean OHLCV data and enforce a no-missing-values output.
-
-    Args:
-        raw_data: Raw DataFrame returned by yfinance download.
-
-    Returns:
-        A cleaned DataFrame with DateTime index, sorted rows, and no missing values.
-
-    Raises:
-        ValueError: If data is empty before or after cleaning.
-    """
+    """Clean OHLCV data and enforce a no-missing-values output."""
     if raw_data is None or raw_data.empty:
-        raise ValueError("No data returned from yfinance.")
+        raise ValueError("No data returned from data source.")
 
     data = raw_data.copy()
 
@@ -80,21 +84,7 @@ def _clean_ohlcv_data(raw_data: pd.DataFrame) -> pd.DataFrame:
 
 
 def get_stock_data(tickers: list[str], period: str = "1y") -> pd.DataFrame:
-    """Download historical OHLCV data for multiple ticker symbols.
-
-    Args:
-        tickers: List of stock ticker symbols (for example: ['VOO', 'NVDA']).
-        period: yfinance period string (for example: '1y', '5y', 'max').
-
-    Returns:
-        A cleaned pandas DataFrame of OHLCV data with no missing values.
-        For multiple tickers, columns are a MultiIndex in the form:
-        (PriceField, Ticker), such as ('Close', 'NVDA').
-
-    Raises:
-        ValueError: If input arguments are invalid or data is not usable.
-        RuntimeError: If yfinance download fails.
-    """
+    """Download historical OHLCV data for multiple ticker symbols from Yahoo Finance."""
     cleaned_tickers = _validate_tickers(tickers)
 
     if not isinstance(period, str) or not period.strip():
@@ -125,23 +115,7 @@ def get_stock_data(tickers: list[str], period: str = "1y") -> pd.DataFrame:
 
 
 def get_stock_info(ticker: str) -> dict[str, Any]:
-    """Fetch key company metadata for a single ticker.
-
-    Args:
-        ticker: Stock ticker symbol.
-
-    Returns:
-        Dictionary containing:
-            - ticker: normalized ticker symbol
-            - company_name: company long name (if available)
-            - sector: company sector (if available)
-            - market_cap: market capitalization (if available)
-            - pe_ratio: trailing P/E ratio (if available)
-
-    Raises:
-        ValueError: If ticker input is invalid.
-        RuntimeError: If metadata fetch fails.
-    """
+    """Fetch key company metadata for a single ticker."""
     if not isinstance(ticker, str) or not ticker.strip():
         raise ValueError("ticker must be a non-empty string.")
 
@@ -157,8 +131,94 @@ def get_stock_info(ticker: str) -> dict[str, Any]:
 
     return {
         "ticker": normalized,
-        "company_name": info.get("longName"),
-        "sector": info.get("sector"),
+        "company_name": info.get("longName") or info.get("shortName") or normalized,
+        "sector": info.get("sector", "N/A"),
         "market_cap": info.get("marketCap"),
         "pe_ratio": info.get("trailingPE"),
+        "currency": info.get("currency", "USD"),
     }
+
+
+# ─────────────────────────────────────────────────────────────
+# OFFLINE & LOCAL DATASET HANDLING
+# ─────────────────────────────────────────────────────────────
+
+def get_sample_data_dir() -> Path:
+    """Return path to data/sample directory, creating it if necessary."""
+    project_root = Path(__file__).resolve().parent.parent
+    sample_dir = project_root / "data" / "sample"
+    sample_dir.mkdir(parents=True, exist_ok=True)
+    return sample_dir
+
+
+def get_processed_data_dir() -> Path:
+    """Return path to data/processed directory, creating it if necessary."""
+    project_root = Path(__file__).resolve().parent.parent
+    proc_dir = project_root / "data" / "processed"
+    proc_dir.mkdir(parents=True, exist_ok=True)
+    return proc_dir
+
+
+def load_local_dataset(filepath: str | Path) -> pd.DataFrame:
+    """Load and normalize a local CSV or Parquet stock dataset."""
+    path = Path(filepath)
+    if not path.exists():
+        raise FileNotFoundError(f"Dataset file not found: {path}")
+
+    if path.suffix.lower() == ".parquet":
+        df = pd.read_parquet(path)
+    elif path.suffix.lower() == ".csv":
+        df = pd.read_csv(path)
+    else:
+        raise ValueError(f"Unsupported file format: {path.suffix}. Must be CSV or Parquet.")
+
+    # Parse date column
+    date_candidates = [c for c in df.columns if "date" in str(c).lower()]
+    if date_candidates:
+        date_col = date_candidates[0]
+        df[date_col] = pd.to_datetime(df[date_col])
+        df = df.set_index(date_col)
+    elif not isinstance(df.index, pd.DatetimeIndex):
+        try:
+            df.index = pd.to_datetime(df.index)
+        except Exception:
+            pass
+
+    return _clean_ohlcv_data(df)
+
+
+def parse_uploaded_file(uploaded_file: Any) -> Tuple[pd.DataFrame, str]:
+    """Parse a user-uploaded CSV or Parquet file in Streamlit."""
+    file_name = uploaded_file.name
+    if file_name.endswith(".parquet"):
+        df = pd.read_parquet(uploaded_file)
+    elif file_name.endswith(".csv"):
+        df = pd.read_csv(uploaded_file)
+    else:
+        raise ValueError("Uploaded file must be a .csv or .parquet file.")
+
+    date_candidates = [c for c in df.columns if "date" in str(c).lower()]
+    if date_candidates:
+        date_col = date_candidates[0]
+        df[date_col] = pd.to_datetime(df[date_col])
+        df = df.set_index(date_col)
+
+    ticker = Path(file_name).stem.upper()
+    cleaned = _clean_ohlcv_data(df)
+    return cleaned, ticker
+
+
+def list_sample_datasets() -> list[dict[str, str]]:
+    """Enumerate pre-installed sample datasets in data/sample/."""
+    sample_dir = get_sample_data_dir()
+    files = list(sample_dir.glob("*.parquet")) + list(sample_dir.glob("*.csv"))
+    datasets = []
+    for f in sorted(files):
+        datasets.append({
+            "filename": f.name,
+            "ticker": f.stem.upper(),
+            "format": f.suffix.replace(".", "").upper(),
+            "path": str(f.resolve()),
+            "size_kb": f"{f.stat().st_size / 1024:.1f} KB",
+        })
+    return datasets

@@ -59,3 +59,6 @@ htmlcov/
 
 # Local environment variables
 .env
+
+# Generated processing data
+data/processed/
