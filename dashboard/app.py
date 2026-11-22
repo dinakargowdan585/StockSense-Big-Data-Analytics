@@ -75,25 +75,26 @@ st.markdown(
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
     :root {
-        --bg-main: #090d14;
-        --bg-panel: #0d121c;
-        --bg-card: #111724;
-        --border-color: #1e293b;
-        --border-subtle: #162032;
-        --text-primary: #f1f5f9;
-        --text-secondary: #94a3b8;
-        --text-muted: #64748b;
-        --accent-blue: #2563eb;
+        --bg-main: #000000;
+        --bg-panel: #050505;
+        --bg-card: #0a0a0a;
+        --border-color: #222222;
+        --border-subtle: #171717;
+        --text-primary: #f8fafc;
+        --text-secondary: #a3a3a3;
+        --text-muted: #737373;
         --pos-green: #10b981;
         --pos-green-bg: rgba(16, 185, 129, 0.1);
         --neg-red: #ef4444;
         --neg-red-bg: rgba(239, 68, 68, 0.1);
     }
 
-    /* Global Typography & Canvas */
+    /* Global Typography & True Black Canvas */
     html, body, [data-testid="stAppViewContainer"],
-    [data-testid="stMain"], section.main {
-        background-color: var(--bg-main) !important;
+    [data-testid="stMain"], section.main,
+    [data-testid="stHeader"], [data-testid="stSidebar"],
+    [data-testid="stSidebarContent"], [data-testid="stToolbar"] {
+        background-color: #000000 !important;
         color: var(--text-primary) !important;
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
     }
@@ -106,7 +107,7 @@ st.markdown(
 
     /* Sidebar Clean Styling */
     [data-testid="stSidebar"] {
-        background-color: var(--bg-panel) !important;
+        background-color: #050505 !important;
         border-right: 1px solid var(--border-color) !important;
     }
     [data-testid="stSidebar"] * {
@@ -118,7 +119,7 @@ st.markdown(
         display: flex;
         align-items: center;
         justify-content: space-between;
-        background: var(--bg-panel);
+        background: #080808;
         border: 1px solid var(--border-color);
         border-radius: 6px;
         padding: 14px 20px;
@@ -132,15 +133,15 @@ st.markdown(
     }
     .header-subtitle {
         font-size: 0.8rem;
-        color: #64748b;
+        color: #737373;
         margin-left: 10px;
         font-weight: 500;
     }
     .status-tag {
         font-size: 0.74rem;
         font-weight: 600;
-        color: #94a3b8;
-        background: #162032;
+        color: #a3a3a3;
+        background: #111111;
         border: 1px solid var(--border-color);
         padding: 4px 10px;
         border-radius: 4px;
@@ -149,7 +150,7 @@ st.markdown(
 
     /* Standardized Metric Card */
     .metric-card {
-        background: var(--bg-card);
+        background: #0a0a0a;
         border: 1px solid var(--border-color);
         border-radius: 6px;
         padding: 16px 18px;
@@ -176,8 +177,8 @@ st.markdown(
 
     /* Prediction Forecast Panel */
     .forecast-panel {
-        background: var(--bg-card);
-        border: 1px solid #283548;
+        background: #0a0a0a;
+        border: 1px solid #262626;
         border-radius: 6px;
         padding: 22px 24px;
         margin-bottom: 20px;
@@ -208,9 +209,9 @@ st.markdown(
     }
     .chip-neutral {
         display: inline-block;
-        background: #162032;
+        background: #111111;
         border: 1px solid var(--border-color);
-        color: #94a3b8 !important;
+        color: #a3a3a3 !important;
         padding: 3px 8px;
         border-radius: 4px;
         font-size: 0.78rem;
@@ -222,7 +223,7 @@ st.markdown(
     .section-label {
         font-size: 0.82rem;
         font-weight: 700;
-        color: #cbd5e1;
+        color: #a3a3a3;
         text-transform: uppercase;
         letter-spacing: 0.06em;
         margin: 18px 0 10px 0;
@@ -241,7 +242,7 @@ st.markdown(
     .pipeline-strip {
         display: flex;
         align-items: center;
-        background: var(--bg-panel);
+        background: #080808;
         border: 1px solid var(--border-color);
         border-radius: 6px;
         padding: 12px 18px;
@@ -258,7 +259,7 @@ st.markdown(
     .stage-num {
         font-size: 0.7rem;
         font-weight: 700;
-        color: #38bdf8;
+        color: #e5e5e5;
         font-family: 'JetBrains Mono', monospace;
     }
     .stage-name {
@@ -269,28 +270,28 @@ st.markdown(
     }
     .stage-desc {
         font-size: 0.7rem;
-        color: #64748b;
+        color: #737373;
     }
     .stage-sep {
-        color: #334155;
+        color: #262626;
         font-size: 0.9rem;
         padding: 0 8px;
     }
 
     /* Clean Solid Button */
     .stButton > button {
-        background: #1d4ed8 !important;
+        background: #171717 !important;
         color: #ffffff !important;
-        border: 1px solid #2563eb !important;
+        border: 1px solid #333333 !important;
         border-radius: 4px !important;
         font-weight: 600 !important;
         font-size: 0.86rem !important;
         padding: 8px 16px !important;
-        transition: background-color 0.15s ease !important;
+        transition: all 0.15s ease !important;
     }
     .stButton > button:hover {
-        background: #1e40af !important;
-        border-color: #3b82f6 !important;
+        background: #262626 !important;
+        border-color: #525252 !important;
     }
     hr {
         border-color: var(--border-color) !important;
@@ -302,28 +303,28 @@ st.markdown(
 )
 
 # ─────────────────────────────────────────────────────────────
-# PLOTLY FINANCIAL THEME
+# PLOTLY TRUE BLACK FINANCIAL THEME
 # ─────────────────────────────────────────────────────────────
-GRID_COLOR = "#182234"
+GRID_COLOR = "#1a1a1a"
 
 def _plotly_layout(title: str = "", height: int = 380, **extra) -> dict:
-    """Returns a clean, uncluttered Plotly layout matching institutional financial tools."""
+    """Returns a clean, true black Plotly layout matching institutional financial tools."""
     base = dict(
         template="plotly_dark",
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        title=dict(text=title, font=dict(family="Inter, sans-serif", size=12, color="#e2e8f0")),
-        font=dict(family="Inter, sans-serif", color="#94a3b8", size=11),
+        paper_bgcolor="#000000",
+        plot_bgcolor="#000000",
+        title=dict(text=title, font=dict(family="Inter, sans-serif", size=12, color="#e5e5e5")),
+        font=dict(family="Inter, sans-serif", color="#a3a3a3", size=11),
         height=height,
         margin=dict(l=45, r=20, t=40, b=35),
         legend=dict(
-            bgcolor="rgba(13, 18, 28, 0.8)",
-            bordercolor="#1e293b",
+            bgcolor="#0a0a0a",
+            bordercolor="#222222",
             borderwidth=1,
-            font=dict(color="#cbd5e1", size=11),
+            font=dict(color="#d4d4d4", size=11),
         ),
-        xaxis=dict(gridcolor=GRID_COLOR, zerolinecolor="#1e293b", showline=False),
-        yaxis=dict(gridcolor=GRID_COLOR, zerolinecolor="#1e293b", showline=False),
+        xaxis=dict(gridcolor=GRID_COLOR, zerolinecolor="#222222", showline=False),
+        yaxis=dict(gridcolor=GRID_COLOR, zerolinecolor="#222222", showline=False),
     )
     base.update(extra)
     return base
@@ -564,7 +565,7 @@ if page == "Prediction Dashboard":
             y=df_flat[close_col],
             name="Close Price",
             mode="lines",
-            line=dict(color="#38bdf8", width=2),
+            line=dict(color="#ffffff", width=1.8),
         )
     )
     if "SMA_20" in processed_df.columns:
@@ -692,7 +693,7 @@ if page == "Prediction Dashboard":
             y=viz_df["Actual_Close"],
             name="Actual Close",
             mode="lines+markers",
-            line=dict(color="#38bdf8", width=2),
+            line=dict(color="#ffffff", width=2),
             marker=dict(size=4),
         )
     )
@@ -761,7 +762,7 @@ if page == "Prediction Dashboard":
                 x="Contribution",
                 y="Feature",
                 orientation="h",
-                color_discrete_sequence=["#38bdf8"],
+                color_discrete_sequence=["#e5e5e5"],
             )
             fig_feat.update_layout(
                 **_plotly_layout("Top Contributing Features", height=230, margin=dict(l=70, r=20, t=35, b=25))
@@ -890,7 +891,7 @@ elif page == "Data Processing":
                 <span class="status-tag" style="margin-left: 8px;">{eng_name}</span>
             </div>
             <div style="font-size: 0.78rem; color: #94a3b8;">
-                Storage Sink: <code style="color: #38bdf8;">{spark_res['output_parquet']}</code>
+                Storage Sink: <code style="color: #e5e5e5;">{spark_res['output_parquet']}</code>
             </div>
         </div>
         """,
@@ -1035,7 +1036,7 @@ elif page == "Model Evaluation":
             y=comb_viz["Actual_Close"],
             name="Actual Close",
             mode="lines+markers",
-            line=dict(color="#38bdf8", width=2),
+            line=dict(color="#ffffff", width=2),
             marker=dict(size=4),
         )
     )
