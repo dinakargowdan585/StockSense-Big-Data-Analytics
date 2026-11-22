@@ -1,11 +1,11 @@
-"""StockSense: Big Data Analytics in Stock Market Prediction.
+"""StockSense: High-Frequency & Big Data Financial Analytics Platform.
 
 Academic Activity-Based Learning (ABL) Platform:
 - Big Data ingestion & cleaning with Apache PySpark
 - Descriptive, Diagnostic, Predictive, and Prescriptive Analytics
 - Chronological Machine Learning predictions with Naive Baseline Benchmarks
 - Empirical PySpark vs. Pandas Performance Benchmarking
-- Institutional Financial Terminal UI
+- Institutional Wall-Street / TradingView Financial Terminal UI
 """
 
 from __future__ import annotations
@@ -53,143 +53,332 @@ from src.spark_engine import get_spark_status, process_stock_data_spark
 # PAGE CONFIGURATION
 # ─────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="StockSense | Financial Analytics",
-    page_icon="◆",
+    page_title="StockSense | Financial Analytics Terminal",
+    page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
 # ─────────────────────────────────────────────────────────────
-# INSTITUTIONAL FINANCIAL TERMINAL THEME (CSS)
+# ELITE INSTITUTIONAL FINANCIAL TERMINAL THEME (CSS)
 # ─────────────────────────────────────────────────────────────
 st.markdown(
     """
     <style>
-    /* ── Institutional Dark Theme ── */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
     :root {
-        --bg-main: #0b0f17;
-        --bg-card: #121824;
-        --bg-hover: #192233;
-        --border-color: #1e293b;
-        --border-subtle: #2d3b55;
-        --text-primary: #f1f5f9;
+        --bg-main: #07090e;
+        --bg-panel: #0d121d;
+        --bg-card: #111726;
+        --bg-card-hover: #161e31;
+        --border-subtle: #1c2638;
+        --border-strong: #2a3852;
+        --text-primary: #f8fafc;
         --text-secondary: #94a3b8;
         --text-muted: #64748b;
+        --accent-cyan: #0ea5e9;
         --accent-blue: #38bdf8;
+        --accent-indigo: #6366f1;
         --accent-violet: #818cf8;
-        --pos-green: #22c55e;
-        --neg-red: #ef4444;
+        --pos-green: #10b981;
+        --pos-green-bg: rgba(16, 185, 129, 0.12);
+        --neg-red: #f43f5e;
+        --neg-red-bg: rgba(244, 63, 94, 0.12);
+        --neutral-gold: #f59e0b;
+        --neutral-gold-bg: rgba(245, 158, 11, 0.12);
     }
 
+    /* Global Typography & Canvas */
     html, body, [data-testid="stAppViewContainer"],
     [data-testid="stMain"], section.main {
         background-color: var(--bg-main) !important;
         color: var(--text-primary) !important;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+        letter-spacing: -0.01em;
     }
 
-    /* Sidebar Styling */
+    /* Monospace for Numbers */
+    .mono-num {
+        font-family: 'JetBrains Mono', monospace !important;
+        font-feature-settings: "tnum" 1;
+    }
+
+    /* Sidebar Refinement */
     [data-testid="stSidebar"] {
-        background-color: #0e131d !important;
-        border-right: 1px solid var(--border-color);
+        background-color: var(--bg-panel) !important;
+        border-right: 1px solid var(--border-subtle) !important;
+        box-shadow: 4px 0 24px rgba(0, 0, 0, 0.4);
     }
     [data-testid="stSidebar"] * {
         color: #cbd5e1 !important;
     }
 
-    /* Metric Cards */
-    [data-testid="stMetric"] {
-        background-color: var(--bg-card);
-        border: 1px solid var(--border-color);
-        border-radius: 6px;
-        padding: 12px 16px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    /* Top Executive Header Bar */
+    .terminal-nav-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: linear-gradient(180deg, #111726 0%, #0d121d 100%);
+        border: 1px solid var(--border-subtle);
+        border-radius: 8px;
+        padding: 10px 18px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
     }
-    [data-testid="stMetricLabel"] {
-        color: var(--text-secondary) !important;
-        font-size: 0.76rem !important;
-        font-weight: 500 !important;
+    .terminal-logo-box {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .terminal-badge-pulse {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: rgba(14, 165, 233, 0.12);
+        border: 1px solid rgba(14, 165, 233, 0.3);
+        color: var(--accent-blue) !important;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 0.74rem;
+        font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.05em;
     }
-    [data-testid="stMetricValue"] {
-        color: var(--text-primary) !important;
-        font-size: 1.35rem !important;
-        font-weight: 600 !important;
+    .pulse-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background-color: #38bdf8;
+        box-shadow: 0 0 8px #38bdf8;
+        animation: pulseAnimation 2s infinite;
     }
-    [data-testid="stMetricDelta"] {
-        font-size: 0.8rem !important;
+    @keyframes pulseAnimation {
+        0% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.4; transform: scale(0.85); }
+        100% { opacity: 1; transform: scale(1); }
     }
 
-    /* Clean Badges */
-    .badge-spark {
-        background-color: #c2410c;
-        color: #fff !important;
+    /* Metric Tiles (KPI Cards) */
+    [data-testid="stMetric"] {
+        background: linear-gradient(145deg, #121827 0%, #0d131f 100%) !important;
+        border: 1px solid var(--border-subtle) !important;
+        border-top: 2px solid var(--accent-cyan) !important;
+        border-radius: 8px !important;
+        padding: 14px 16px !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+        transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+    [data-testid="stMetric"]:hover {
+        transform: translateY(-2px);
+        border-color: var(--accent-cyan) !important;
+    }
+    [data-testid="stMetricLabel"] {
+        color: var(--text-secondary) !important;
+        font-size: 0.74rem !important;
+        font-weight: 600 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.06em !important;
+    }
+    [data-testid="stMetricValue"] {
+        color: var(--text-primary) !important;
+        font-size: 1.45rem !important;
+        font-weight: 700 !important;
+        font-family: 'JetBrains Mono', monospace !important;
+        letter-spacing: -0.02em !important;
+    }
+    [data-testid="stMetricDelta"] {
+        font-size: 0.82rem !important;
+        font-weight: 600 !important;
+        font-family: 'JetBrains Mono', monospace !important;
+    }
+
+    /* Chips & Badges */
+    .chip-green {
+        display: inline-block;
+        background: var(--pos-green-bg);
+        border: 1px solid rgba(16, 185, 129, 0.3);
+        color: var(--pos-green) !important;
         padding: 3px 8px;
         border-radius: 4px;
-        font-weight: 600;
         font-size: 0.75rem;
-        display: inline-block;
-        letter-spacing: 0.02em;
+        font-weight: 600;
+        font-family: 'JetBrains Mono', monospace;
     }
-    .badge-pandas {
-        background-color: #1d4ed8;
-        color: #fff !important;
+    .chip-red {
+        display: inline-block;
+        background: var(--neg-red-bg);
+        border: 1px solid rgba(244, 63, 94, 0.3);
+        color: var(--neg-red) !important;
         padding: 3px 8px;
         border-radius: 4px;
-        font-weight: 600;
         font-size: 0.75rem;
+        font-weight: 600;
+        font-family: 'JetBrains Mono', monospace;
+    }
+    .chip-blue {
         display: inline-block;
-        letter-spacing: 0.02em;
-    }
-    .badge-live {
-        background-color: #065f46;
-        color: #34d399 !important;
-        padding: 2px 8px;
+        background: rgba(14, 165, 233, 0.12);
+        border: 1px solid rgba(14, 165, 233, 0.3);
+        color: #38bdf8 !important;
+        padding: 3px 8px;
         border-radius: 4px;
-        font-size: 0.72rem;
+        font-size: 0.75rem;
         font-weight: 600;
+        font-family: 'JetBrains Mono', monospace;
     }
-    .badge-offline {
-        background-color: #374151;
-        color: #9ca3af !important;
-        padding: 2px 8px;
+    .chip-gold {
+        display: inline-block;
+        background: var(--neutral-gold-bg);
+        border: 1px solid rgba(245, 158, 11, 0.3);
+        color: #fbbf24 !important;
+        padding: 3px 8px;
         border-radius: 4px;
-        font-size: 0.72rem;
+        font-size: 0.75rem;
         font-weight: 600;
+        font-family: 'JetBrains Mono', monospace;
     }
 
     /* Section Headers */
     .term-header {
-        font-size: 0.95rem;
-        font-weight: 600;
-        color: var(--accent-blue);
+        font-size: 0.86rem;
+        font-weight: 700;
+        color: #38bdf8;
         text-transform: uppercase;
-        letter-spacing: 0.06em;
-        margin-top: 14px;
-        margin-bottom: 8px;
-        border-left: 2px solid var(--accent-blue);
-        padding-left: 8px;
+        letter-spacing: 0.08em;
+        margin: 18px 0 10px 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .term-header::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: linear-gradient(90deg, #1e293b 0%, rgba(30, 41, 59, 0) 100%);
     }
 
-    /* Financial Data Container */
-    .terminal-box {
-        background-color: var(--bg-card);
-        border: 1px solid var(--border-color);
-        border-radius: 6px;
-        padding: 16px;
-        margin: 10px 0 16px 0;
+    /* Wall Street Prescriptive Action Card */
+    .action-card {
+        background: linear-gradient(145deg, #131b2c 0%, #0e1320 100%);
+        border: 1px solid var(--border-strong);
+        border-radius: 8px;
+        padding: 20px 24px;
+        margin: 16px 0;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
     }
 
+    /* Stepper Workflow Visualizer */
+    .workflow-container {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: #0f1523;
+        border: 1px solid var(--border-subtle);
+        border-radius: 8px;
+        padding: 16px 20px;
+        margin: 14px 0 20px 0;
+        overflow-x: auto;
+    }
+    .step-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        min-width: 110px;
+    }
+    .step-badge {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: #1e293b;
+        color: #94a3b8;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 0.85rem;
+        margin-bottom: 6px;
+        border: 1px solid #334155;
+    }
+    .step-badge.active {
+        background: linear-gradient(135deg, #0ea5e9, #6366f1);
+        color: #ffffff;
+        border: none;
+        box-shadow: 0 0 12px rgba(14, 165, 233, 0.5);
+    }
+    .step-title {
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: #f1f5f9;
+        margin-bottom: 2px;
+    }
+    .step-desc {
+        font-size: 0.68rem;
+        color: #64748b;
+    }
+    .step-arrow {
+        color: #334155;
+        font-size: 1.2rem;
+        margin: 0 4px;
+    }
+
+    /* 52-Week Range Progress Gauge */
+    .range-bar-container {
+        width: 100%;
+        margin-top: 6px;
+    }
+    .range-bar-bg {
+        width: 100%;
+        height: 4px;
+        background: #1e293b;
+        border-radius: 2px;
+        position: relative;
+    }
+    .range-bar-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #0ea5e9, #38bdf8);
+        border-radius: 2px;
+    }
+    .range-pin {
+        position: absolute;
+        top: -4px;
+        width: 4px;
+        height: 12px;
+        background: #f8fafc;
+        border-radius: 2px;
+        box-shadow: 0 0 6px rgba(255, 255, 255, 0.8);
+    }
+
+    /* Streamlit Tabs & Buttons */
+    [data-testid="stTabs"] button {
+        color: #94a3b8 !important;
+        font-weight: 600 !important;
+        font-size: 0.85rem !important;
+        padding: 8px 16px !important;
+    }
+    [data-testid="stTabs"] button[aria-selected="true"] {
+        color: #38bdf8 !important;
+        border-bottom: 2px solid #38bdf8 !important;
+    }
+    .stButton > button {
+        background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%) !important;
+        color: #ffffff !important;
+        border: none !important;
+        border-radius: 6px !important;
+        font-weight: 600 !important;
+        font-size: 0.88rem !important;
+        padding: 8px 16px !important;
+        box-shadow: 0 2px 10px rgba(2, 132, 199, 0.3) !important;
+        transition: all 0.2s ease !important;
+    }
+    .stButton > button:hover {
+        box-shadow: 0 4px 16px rgba(2, 132, 199, 0.5) !important;
+        transform: translateY(-1px);
+    }
     hr {
-        border-color: var(--border-color) !important;
-        margin: 14px 0 !important;
-    }
-
-    /* Tables */
-    [data-testid="stDataFrame"] {
-        border: 1px solid var(--border-color);
-        border-radius: 6px;
+        border-color: var(--border-subtle) !important;
+        margin: 16px 0 !important;
     }
     </style>
     """,
@@ -200,26 +389,33 @@ st.markdown(
 # PLOTLY THEME & COLOR PALETTE
 # ─────────────────────────────────────────────────────────────
 PLOTLY_TEMPLATE = "plotly_dark"
-PLOTLY_BG = "#0b0f17"
-PLOTLY_CARD_BG = "#121824"
-GRID_COLOR = "#1e293b"
+PLOTLY_BG = "#07090e"
+PLOTLY_CARD_BG = "#0d121d"
+GRID_COLOR = "#182234"
 
 PALETTE = [
-    "#38bdf8", "#34d399", "#f87171", "#a78bfa",
+    "#38bdf8", "#34d399", "#f43f5e", "#a78bfa",
     "#fb923c", "#f472b6", "#facc15", "#4ade80",
 ]
 
 def _plotly_layout(title: str = "", height: int = 400, **extra) -> dict:
+    """Returns a unified, high-contrast Plotly layout matching the terminal theme."""
     return dict(
         template=PLOTLY_TEMPLATE,
-        paper_bgcolor=PLOTLY_CARD_BG,
-        plot_bgcolor=PLOTLY_BG,
-        title=dict(text=title, font=dict(size=13, color="#e2e8f0")),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        title=dict(text=title, font=dict(family="Inter, sans-serif", size=13, color="#e2e8f0")),
+        font=dict(family="Inter, sans-serif", color="#94a3b8", size=11),
         height=height,
-        margin=dict(l=45, r=20, t=40, b=35),
-        legend=dict(bgcolor="rgba(0,0,0,0)", font=dict(color="#cbd5e1", size=11)),
-        xaxis=dict(gridcolor=GRID_COLOR, zerolinecolor="#334155"),
-        yaxis=dict(gridcolor=GRID_COLOR, zerolinecolor="#334155"),
+        margin=dict(l=45, r=20, t=45, b=35),
+        legend=dict(
+            bgcolor="rgba(13, 18, 29, 0.6)",
+            bordercolor="#1e293b",
+            borderwidth=1,
+            font=dict(color="#cbd5e1", size=11),
+        ),
+        xaxis=dict(gridcolor=GRID_COLOR, zerolinecolor="#223147", showline=False),
+        yaxis=dict(gridcolor=GRID_COLOR, zerolinecolor="#223147", showline=False),
         **extra,
     )
 
@@ -254,16 +450,48 @@ def _cached_stock_info(ticker: str) -> dict[str, Any]:
         return {"company_name": ticker, "market_cap": None, "sector": "N/A", "currency": "USD"}
 
 # ─────────────────────────────────────────────────────────────
+# TOP EXECUTIVE BRANDING BANNER
+# ─────────────────────────────────────────────────────────────
+st.markdown(
+    """
+    <div class="terminal-nav-header">
+        <div class="terminal-logo-box">
+            <div style="background: linear-gradient(135deg, #0ea5e9, #6366f1); width: 34px; height: 34px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: 800; color: white; font-size: 1rem; box-shadow: 0 0 12px rgba(14,165,233,0.4);">⚡</div>
+            <div>
+                <span style="font-weight: 700; font-size: 1.15rem; color: #f8fafc; letter-spacing: -0.02em;">StockSense</span>
+                <span style="font-size: 0.72rem; color: #64748b; margin-left: 8px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Enterprise Terminal v2.4</span>
+            </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <div class="terminal-badge-pulse">
+                <div class="pulse-dot"></div>
+                Apache Spark 3.5 Active
+            </div>
+            <div style="background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3); color: #34d399; padding: 4px 10px; border-radius: 20px; font-size: 0.74rem; font-weight: 600; letter-spacing: 0.04em;">
+                NASDAQ · NYSE · NSE Feed
+            </div>
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+# ─────────────────────────────────────────────────────────────
 # SIDEBAR NAVIGATION & DATA CONTROLS
 # ─────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("### **StockSense**")
-    st.caption("Big Data Analytics & Prediction Platform")
-    st.markdown("---")
+    st.markdown(
+        """
+        <div style="padding: 4px 0 12px 0;">
+            <div style="font-weight: 700; font-size: 1.05rem; color: #f8fafc;">Terminal Navigation</div>
+            <div style="font-size: 0.72rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em;">ABL Research Dossier</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-    # Clean, non-emoji navigation
     page = st.radio(
-        "Navigation",
+        "Navigation Menu",
         [
             "Market Overview",
             "Stock Analysis",
@@ -274,12 +502,13 @@ with st.sidebar:
             "Project Information",
         ],
         index=0,
+        label_visibility="collapsed",
     )
     st.markdown("---")
 
-    st.markdown("#### Data Ingestion Mode")
+    st.markdown('<p class="term-header">Data Feed Ingestion</p>', unsafe_allow_html=True)
     ingestion_mode = st.selectbox(
-        "Data Source",
+        "Ingestion Feed",
         ["Live / Yahoo Finance API", "Local Offline Datasets", "Upload File (CSV/Parquet)"],
         index=0,
     )
@@ -289,17 +518,17 @@ with st.sidebar:
     data_origin_label = "Yahoo Finance API"
     selected_tickers: list[str] = []
 
-    # Benchmark stock universe required by user specification:
+    # Required ABL Universe
     CORE_STOCK_PRESETS = ["NVDA", "AAPL", "MSFT", "RELIANCE.NS", "TCS.NS"]
 
     if ingestion_mode == "Live / Yahoo Finance API":
         market_universe = st.selectbox(
-            "Equities Watchlist",
+            "Watchlist Basket",
             [
                 "ABL Core Set (NVDA, AAPL, MSFT, RELIANCE, TCS)",
-                "US Tech & Indices (NVDA, AAPL, MSFT, VOO, SPY)",
-                "Indian NSE Universe (RELIANCE.NS, TCS.NS, INFY.NS)",
-                "Custom Selection",
+                "US Mega-Cap & Indices (NVDA, AAPL, MSFT, VOO, SPY)",
+                "Indian NSE Bluechips (RELIANCE.NS, TCS.NS, INFY.NS)",
+                "Custom Equities",
             ],
             index=0,
         )
@@ -307,7 +536,7 @@ with st.sidebar:
         if "ABL Core Set" in market_universe:
             default_selection = CORE_STOCK_PRESETS
             options_pool = CORE_STOCK_PRESETS + ["GOOGL", "AMZN", "INFY.NS"]
-        elif "US Tech" in market_universe:
+        elif "US Mega-Cap" in market_universe:
             default_selection = ["NVDA", "AAPL", "MSFT", "VOO"]
             options_pool = US_PRESETS
         elif "Indian NSE" in market_universe:
@@ -317,8 +546,8 @@ with st.sidebar:
             default_selection = ["NVDA", "AAPL", "RELIANCE.NS"]
             options_pool = CORE_STOCK_PRESETS + US_PRESETS + NSE_PRESETS
 
-        chosen_tickers = st.multiselect("Active Tickers", options=options_pool, default=default_selection)
-        custom_input = st.text_input("Add Ticker (e.g. TSLA, HDFCBANK.NS)", "")
+        chosen_tickers = st.multiselect("Selected Equities", options=options_pool, default=default_selection)
+        custom_input = st.text_input("Enter Ticker Symbol", "", placeholder="e.g. TSLA, HDFCBANK.NS")
         custom_tokens = [t.strip().upper() for t in custom_input.split(",") if t.strip()]
 
         seen = set()
@@ -332,17 +561,17 @@ with st.sidebar:
 
         today = date.today()
         default_start = today - timedelta(days=365)
-        start_date = st.date_input("Start Date", value=default_start, max_value=today - timedelta(days=7))
-        end_date = st.date_input("End Date", value=today, min_value=start_date + timedelta(days=7), max_value=today)
+        start_date = st.date_input("Start Window", value=default_start, max_value=today - timedelta(days=7))
+        end_date = st.date_input("End Window", value=today, min_value=start_date + timedelta(days=7), max_value=today)
 
         days_diff = max((end_date - start_date).days, 1)
         period = "1y" if days_diff <= 370 else ("2y" if days_diff <= 740 else "5y")
 
-        if st.button("Refresh Ingestion Cache", use_container_width=True):
+        if st.button("Purge & Refresh Ingestion Cache", use_container_width=True):
             st.cache_data.clear()
             st.success("Cache cleared — pulling latest quotes.")
 
-        with st.spinner("Ingesting market data..."):
+        with st.spinner("Streaming market data..."):
             try:
                 raw_df = _cached_api_load(tuple(sorted(selected_tickers)), period)
                 mask = (raw_df.index.date >= start_date) & (raw_df.index.date <= end_date)
@@ -389,16 +618,17 @@ with st.sidebar:
             st.stop()
 
     st.markdown("---")
+    st.markdown('<p class="term-header">Cluster Telemetry</p>', unsafe_allow_html=True)
     spark_status = get_spark_status()
     if spark_status["pyspark_installed"]:
-        st.markdown('<span class="badge-spark">Apache PySpark Active</span>', unsafe_allow_html=True)
+        st.markdown('<span class="chip-blue">Engine: Apache Spark 3.5</span>', unsafe_allow_html=True)
     else:
-        st.markdown('<span class="badge-pandas">Engine: Pandas Fallback</span>', unsafe_allow_html=True)
+        st.markdown('<span class="chip-gold">Engine: Pandas Fallback</span>', unsafe_allow_html=True)
 
     if data_origin_tag == "LIVE_API":
-        st.markdown('<span class="badge-live">Source: Live Yahoo Finance</span>', unsafe_allow_html=True)
+        st.markdown('<span class="chip-green">Feed: Real-Time Active</span>', unsafe_allow_html=True)
     else:
-        st.markdown('<span class="badge-offline">Source: Local Cached/Sample</span>', unsafe_allow_html=True)
+        st.markdown('<span class="chip-gold">Feed: Offline / Cached</span>', unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────────────────────
 # DATA SANITY CHECK
@@ -417,12 +647,12 @@ if not available_tickers:
 # PAGE A: MARKET OVERVIEW
 # ══════════════════════════════════════════════════════════════
 if page == "Market Overview":
-    st.title("Market Overview")
-    st.caption(f"Watchlist Telemetry · {data_origin_label} · Active Assets: {len(available_tickers)}")
+    st.markdown("### Market Overview")
+    st.caption(f"Real-Time Telemetry & Cross-Asset Multi-Index Monitoring · {data_origin_label}")
     st.markdown("---")
 
-    # 1. Primary KPI Grid
-    st.markdown('<p class="term-header">Asset Snapshot & Technical Benchmarks</p>', unsafe_allow_html=True)
+    # 1. Primary KPI Grid with 52-Week Range Gauge
+    st.markdown('<p class="term-header">Live Market Snapshot & 52-Week Range Position</p>', unsafe_allow_html=True)
     daily_returns_df = close_matrix.pct_change()
     
     cols = st.columns(min(len(available_tickers), 5))
@@ -439,6 +669,12 @@ if page == "Market Overview":
         high_52w = float(s.max())
         low_52w = float(s.min())
 
+        # Calculate position percentage within 52-week range (0% at low, 100% at high)
+        if high_52w > low_52w:
+            pos_pct = min(max(((current_val - low_52w) / (high_52w - low_52w)) * 100, 0), 100)
+        else:
+            pos_pct = 50.0
+
         # Metadata
         info = _cached_stock_info(ticker)
         mcap = info.get("market_cap")
@@ -452,14 +688,33 @@ if page == "Market Overview":
             st.metric(
                 label=ticker,
                 value=f"{curr_sym}{current_val:,.2f}",
-                delta=f"{daily_chg:+.2f}%",
+                delta=f"{daily_chg:+.2f}% today",
             )
-            st.caption(f"52W Range: {curr_sym}{low_52w:,.1f} - {curr_sym}{high_52w:,.1f} | Cap: {mcap_str}")
+            # Custom 52-week visual gauge
+            st.markdown(
+                f"""
+                <div class="range-bar-container">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.68rem; color: #64748b; font-family: monospace;">
+                        <span>{curr_sym}{low_52w:,.1f}</span>
+                        <span style="color: #94a3b8; font-weight: 600;">52W RANGE</span>
+                        <span>{curr_sym}{high_52w:,.1f}</span>
+                    </div>
+                    <div class="range-bar-bg">
+                        <div class="range-bar-fill" style="width: {pos_pct:.1f}%;"></div>
+                        <div class="range-pin" style="left: calc({pos_pct:.1f}% - 2px);"></div>
+                    </div>
+                    <div style="font-size: 0.70rem; color: #94a3b8; margin-top: 4px;">
+                        Cap: <span style="color: #cbd5e1; font-weight: 600;">{mcap_str}</span>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
     st.markdown("---")
 
-    # 2. Normalized Price Performance Chart
-    st.markdown('<p class="term-header">Comparative Price Performance (Base = 100)</p>', unsafe_allow_html=True)
+    # 2. Normalized Performance Chart (Base = 100)
+    st.markdown('<p class="term-header">Relative Cumulative Performance (Indexed to Base = 100)</p>', unsafe_allow_html=True)
     normalized = (close_matrix / close_matrix.iloc[0]) * 100.0
 
     fig_norm = go.Figure()
@@ -470,12 +725,19 @@ if page == "Market Overview":
                 y=normalized[ticker].round(2),
                 mode="lines",
                 name=ticker,
-                line=dict(width=1.8, color=_color_for(ticker, available_tickers)),
-                hovertemplate=f"<b>{ticker}</b><br>Date: %{{x|%b %d, %Y}}<br>Value: %{{y:.2f}}<extra></extra>",
+                line=dict(width=2.0, color=_color_for(ticker, available_tickers)),
+                hovertemplate=f"<b>{ticker}</b><br>Date: %{{x|%b %d, %Y}}<br>Indexed Value: %{{y:.2f}}<extra></extra>",
             )
         )
-    fig_norm.add_hline(y=100, line_dash="dot", line_color="#475569", annotation_text="Base 100")
-    fig_norm.update_layout(**_plotly_layout(height=410))
+    fig_norm.add_hline(
+        y=100,
+        line_dash="dot",
+        line_color="#475569",
+        annotation_text="Base 100 Baseline",
+        annotation_font_color="#94a3b8",
+        annotation_position="bottom right",
+    )
+    fig_norm.update_layout(**_plotly_layout(height=420))
     st.plotly_chart(fig_norm, use_container_width=True)
 
     # 3. Top Gainers & Losers + Performance Rankings
@@ -486,7 +748,7 @@ if page == "Market Overview":
         with col_t1:
             st.dataframe(rank_df, use_container_width=True, hide_index=True)
         with col_t2:
-            st.markdown("#### Performance Extremes")
+            st.markdown("##### Performance Extremes")
             best_asset = rank_df.iloc[0]
             worst_asset = rank_df.iloc[-1]
             ret_col = (
@@ -503,13 +765,19 @@ if page == "Market Overview":
 
             st.markdown(
                 f"""
-                <div style="background-color: #121824; border: 1px solid #1e293b; border-radius: 6px; padding: 12px; margin-bottom: 8px;">
-                    <small style="color: #94a3b8;">TOP PERFORMER</small><br>
-                    <b style="color: #22c55e; font-size: 1.1rem;">{best_asset['Ticker']}</b>: +{best_ret:.2f}%
+                <div style="background: linear-gradient(145deg, #121827 0%, #0d131f 100%); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 6px; padding: 14px; margin-bottom: 10px;">
+                    <div style="font-size: 0.68rem; color: #10b981; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Top Outperformer</div>
+                    <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 4px;">
+                        <span style="color: #f8fafc; font-size: 1.25rem; font-weight: 700;">{best_asset['Ticker']}</span>
+                        <span class="chip-green">+{best_ret:.2f}%</span>
+                    </div>
                 </div>
-                <div style="background-color: #121824; border: 1px solid #1e293b; border-radius: 6px; padding: 12px;">
-                    <small style="color: #94a3b8;">LAGGING ASSET</small><br>
-                    <b style="color: #ef4444; font-size: 1.1rem;">{worst_asset['Ticker']}</b>: {worst_ret:.2f}%
+                <div style="background: linear-gradient(145deg, #121827 0%, #0d131f 100%); border: 1px solid rgba(244, 63, 94, 0.3); border-radius: 6px; padding: 14px;">
+                    <div style="font-size: 0.68rem; color: #f43f5e; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Lagging Instrument</div>
+                    <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 4px;">
+                        <span style="color: #f8fafc; font-size: 1.25rem; font-weight: 700;">{worst_asset['Ticker']}</span>
+                        <span class="chip-red">{worst_ret:.2f}%</span>
+                    </div>
                 </div>
                 """,
                 unsafe_allow_html=True,
@@ -520,11 +788,24 @@ if page == "Market Overview":
 # PAGE B: STOCK ANALYSIS
 # ══════════════════════════════════════════════════════════════
 elif page == "Stock Analysis":
-    st.title("Stock Analysis")
-    st.caption("Technical OHLCV Indicators, Trend Smoothing, Momentum, and Cross-Asset Correlation")
+    st.markdown("### Stock Analysis")
+    st.caption("Technical OHLCV Candlesticks, Moving Averages, Volatility, and Cross-Asset Correlation")
     st.markdown("---")
 
-    sel_stock = st.selectbox("Select Target Equity", options=available_tickers, index=0)
+    col_s1, col_s2 = st.columns([2, 1])
+    with col_s1:
+        sel_stock = st.selectbox("Select Target Equity", options=available_tickers, index=0)
+    with col_s2:
+        info_meta = _cached_stock_info(sel_stock)
+        st.markdown(
+            f"""
+            <div style="background: #0f1523; border: 1px solid #1e293b; border-radius: 6px; padding: 10px 14px; margin-top: 4px;">
+                <span style="font-size: 0.75rem; color: #94a3b8;">Sector: <b>{info_meta.get('sector', 'N/A')}</b></span> &nbsp;|&nbsp;
+                <span style="font-size: 0.75rem; color: #94a3b8;">Currency: <b>{info_meta.get('currency', 'USD')}</b></span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
     # Extract OHLCV series
     if isinstance(df.columns, pd.MultiIndex):
@@ -538,7 +819,7 @@ elif page == "Stock Analysis":
     close_s = t_data["Adj Close"] if "Adj Close" in t_data else (t_data["Close"] if "Close" in t_data else t_data.iloc[:, 0])
     volume_s = t_data["Volume"] if "Volume" in t_data else pd.Series(0, index=t_data.index)
 
-    # Compute technicals
+    # Technical indicators
     sma_20 = close_s.rolling(20, min_periods=1).mean()
     sma_50 = close_s.rolling(50, min_periods=1).mean()
 
@@ -549,14 +830,18 @@ elif page == "Stock Analysis":
     rs = gain / loss.replace(0, np.nan)
     rsi_s = 100 - (100 / (1 + rs))
 
-    # Subplots: Candlestick + Volume + RSI
+    # Triple Subplots: Candlestick + Volume + RSI (TradingView aesthetic)
     fig_stock = make_subplots(
         rows=3,
         cols=1,
         shared_xaxes=True,
         vertical_spacing=0.03,
-        row_heights=[0.60, 0.20, 0.20],
-        subplot_titles=(f"{sel_stock} Price & Moving Averages", "Trading Volume", "Relative Strength Index (RSI 14)"),
+        row_heights=[0.62, 0.19, 0.19],
+        subplot_titles=(
+            f"{sel_stock} Price Action & Trend (SMA 20 / SMA 50)",
+            "Trading Volume Analysis",
+            "Relative Strength Index (RSI 14)",
+        ),
     )
 
     # 1. Candlestick & SMAs
@@ -568,40 +853,41 @@ elif page == "Stock Analysis":
             low=low_s,
             close=close_s,
             name="OHLC",
-            increasing_line_color="#22c55e",
-            decreasing_line_color="#ef4444",
+            increasing_line_color="#10b981",
+            decreasing_line_color="#f43f5e",
         ),
         row=1, col=1,
     )
     fig_stock.add_trace(
-        go.Scatter(x=t_data.index, y=sma_20, mode="lines", name="SMA 20", line=dict(color="#fb923c", width=1.4)),
+        go.Scatter(x=t_data.index, y=sma_20, mode="lines", name="SMA 20", line=dict(color="#fb923c", width=1.5)),
         row=1, col=1,
     )
     fig_stock.add_trace(
-        go.Scatter(x=t_data.index, y=sma_50, mode="lines", name="SMA 50", line=dict(color="#818cf8", width=1.4, dash="dash")),
+        go.Scatter(x=t_data.index, y=sma_50, mode="lines", name="SMA 50", line=dict(color="#818cf8", width=1.5, dash="dash")),
         row=1, col=1,
     )
 
-    # 2. Volume
-    vol_colors = np.where(close_s.diff() >= 0, "#22c55e", "#ef4444")
+    # 2. Volume Bars
+    vol_colors = np.where(close_s.diff() >= 0, "#10b981", "#f43f5e")
     fig_stock.add_trace(
-        go.Bar(x=t_data.index, y=volume_s, name="Volume", marker_color=vol_colors.tolist(), opacity=0.8),
+        go.Bar(x=t_data.index, y=volume_s, name="Volume", marker_color=vol_colors.tolist(), opacity=0.85),
         row=2, col=1,
     )
 
-    # 3. RSI
+    # 3. RSI Oscillator
     fig_stock.add_trace(
-        go.Scatter(x=t_data.index, y=rsi_s, name="RSI (14)", line=dict(color="#38bdf8", width=1.4)),
+        go.Scatter(x=t_data.index, y=rsi_s, name="RSI 14", line=dict(color="#38bdf8", width=1.5)),
         row=3, col=1,
     )
-    fig_stock.add_hline(y=70, line_dash="dot", line_color="#f87171", row=3, col=1)
-    fig_stock.add_hline(y=30, line_dash="dot", line_color="#34d399", row=3, col=1)
+    fig_stock.add_hline(y=70, line_dash="dot", line_color="#f43f5e", annotation_text="Overbought (70)", row=3, col=1)
+    fig_stock.add_hline(y=30, line_dash="dot", line_color="#10b981", annotation_text="Oversold (30)", row=3, col=1)
 
     fig_stock.update_layout(
         template=PLOTLY_TEMPLATE,
-        paper_bgcolor=PLOTLY_CARD_BG,
-        plot_bgcolor=PLOTLY_BG,
-        height=620,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(family="Inter, sans-serif", color="#94a3b8", size=11),
+        height=650,
         margin=dict(l=45, r=20, t=35, b=20),
         xaxis_rangeslider_visible=False,
         showlegend=True,
@@ -626,8 +912,8 @@ elif page == "Stock Analysis":
             template=PLOTLY_TEMPLATE,
         )
         fig_corr.update_layout(
-            paper_bgcolor=PLOTLY_CARD_BG,
-            plot_bgcolor=PLOTLY_BG,
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
             height=340,
             margin=dict(l=40, r=40, t=30, b=30),
         )
@@ -638,19 +924,43 @@ elif page == "Stock Analysis":
 # PAGE C: BIG DATA PROCESSING (ACADEMIC HIGHLIGHT)
 # ══════════════════════════════════════════════════════════════
 elif page == "Big Data Processing":
-    st.title("Big Data Processing Engine")
+    st.markdown("### Big Data Processing Engine")
     st.caption("Distributed ETL Pipeline with Apache Spark (PySpark), Partitioning, and Parquet Storage")
     st.markdown("---")
 
-    # Workflow Visualizer
+    # High-End Visual Stepper
     st.markdown(
         """
-        <div style="background-color: #121824; border: 1px solid #1e293b; border-radius: 6px; padding: 14px 18px; margin-bottom: 16px;">
-            <small style="color: #94a3b8; font-weight: 600; text-transform: uppercase;">ETL Architecture Flow</small>
-            <p style="font-family: monospace; font-size: 0.95rem; color: #38bdf8; margin: 6px 0 0 0;">
-            Raw Ingestion &nbsp;→&nbsp; Schema Validation &nbsp;→&nbsp; Data Hygiene &nbsp;→&nbsp; 
-            Distributed Window Transforms &nbsp;→&nbsp; Parquet Columnar Storage &nbsp;→&nbsp; Downstream Analytics
-            </p>
+        <div class="workflow-container">
+            <div class="step-item">
+                <div class="step-badge active">01</div>
+                <div class="step-title">Ingestion</div>
+                <div class="step-desc">Yahoo / NSE / Parquet</div>
+            </div>
+            <div class="step-arrow">→</div>
+            <div class="step-item">
+                <div class="step-badge active">02</div>
+                <div class="step-title">Validation</div>
+                <div class="step-desc">Strict Schema Typing</div>
+            </div>
+            <div class="step-arrow">→</div>
+            <div class="step-item">
+                <div class="step-badge active">03</div>
+                <div class="step-title">Hygiene</div>
+                <div class="step-desc">IQR Outliers & Null Fills</div>
+            </div>
+            <div class="step-arrow">→</div>
+            <div class="step-item">
+                <div class="step-badge active">04</div>
+                <div class="step-title">Window ETL</div>
+                <div class="step-desc">Distributed Rolling SMAs</div>
+            </div>
+            <div class="step-arrow">→</div>
+            <div class="step-item">
+                <div class="step-badge active">05</div>
+                <div class="step-title">Lake Storage</div>
+                <div class="step-desc">Partitioned Parquet</div>
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -669,20 +979,20 @@ elif page == "Big Data Processing":
 
     # Engine Status Indicators
     engine_badge = (
-        '<span class="badge-spark">Apache PySpark 3.5 (Distributed Local)</span>'
+        '<span class="chip-blue">Apache PySpark 3.5 (Distributed Local)</span>'
         if "PySpark" in spark_res["engine"]
-        else '<span class="badge-pandas">Pandas Processing Engine</span>'
+        else '<span class="chip-gold">Pandas Processing Engine</span>'
     )
-    st.markdown(f"**Execution Runtime:** {engine_badge} &nbsp;|&nbsp; **Latency:** `{spark_res['duration_seconds']}s`", unsafe_allow_html=True)
+    st.markdown(f"**Active Execution Engine:** {engine_badge} &nbsp;|&nbsp; **Latency:** `{spark_res['duration_seconds']}s`", unsafe_allow_html=True)
     st.markdown("")
 
     # Audit Metrics
     c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("Input Records", f"{spark_res['raw_records']:,}")
-    c2.metric("Output Records", f"{spark_res['processed_records']:,}")
-    c3.metric("Missing Handled", f"{spark_res['missing_values_handled']:,}")
-    c4.metric("Duplicates Removed", f"{spark_res['duplicates_removed']:,}")
-    c5.metric("Outliers (IQR)", f"{spark_res['outliers_detected']:,}")
+    c1.metric("Raw Ingested Records", f"{spark_res['raw_records']:,}")
+    c2.metric("Clean Output Records", f"{spark_res['processed_records']:,}")
+    c3.metric("Missing Values Handled", f"{spark_res['missing_values_handled']:,}")
+    c4.metric("Duplicates Deduplicated", f"{spark_res['duplicates_removed']:,}")
+    c5.metric("Outliers Detected (IQR)", f"{spark_res['outliers_detected']:,}")
 
     st.markdown("---")
 
@@ -709,7 +1019,7 @@ elif page == "Big Data Processing":
 # PAGE D: BIG DATA ANALYTICS
 # ══════════════════════════════════════════════════════════════
 elif page == "Big Data Analytics":
-    st.title("Big Data Analytics")
+    st.markdown("### Big Data Analytics")
     st.caption("Four Analytical Pillars: Descriptive, Diagnostic, Predictive, and Prescriptive")
     st.markdown("---")
 
@@ -757,8 +1067,8 @@ elif page == "Big Data Analytics":
                 color_discrete_sequence=["#38bdf8"],
             )
             fig_dist.update_layout(
-                paper_bgcolor=PLOTLY_CARD_BG,
-                plot_bgcolor=PLOTLY_BG,
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
                 height=260,
                 margin=dict(l=40, r=20, t=20, b=30),
                 showlegend=False,
@@ -786,7 +1096,7 @@ elif page == "Big Data Analytics":
                 y=dd_s,
                 mode="lines",
                 fill="tozeroy",
-                line=dict(color="#ef4444", width=1.5),
+                line=dict(color="#f43f5e", width=1.5),
                 name="Drawdown %",
             )
         )
@@ -818,7 +1128,6 @@ elif page == "Big Data Analytics":
             navigate to the **Stock Prediction** section.
             """
         )
-        # Quick comparative glance
         t_ohlcv = df.xs(sel_an_ticker, axis=1, level=1).copy() if isinstance(df.columns, pd.MultiIndex) and sel_an_ticker in df.columns.get_level_values(1) else df.copy()
         try:
             quick_comp = compare_all_models(t_ohlcv, horizon=1, test_size=0.20)
@@ -841,13 +1150,20 @@ elif page == "Big Data Analytics":
 
             st.markdown(
                 f"""
-                <div style="background-color: #121824; border: 1px solid #1e293b; border-radius: 6px; padding: 16px; margin: 12px 0;">
-                    <h4 style="color: {pres_data['action_color']}; margin: 0 0 10px 0;">Signal: {pres_data['action']} · {pres_data['risk_tier']}</h4>
-                    <p style="font-weight: 500; color: #cbd5e1; margin-bottom: 6px;">Quantitative Rationales:</p>
-                    <ul style="color: #94a3b8; font-size: 0.92rem; margin: 0; padding-left: 20px;">
+                <div class="action-card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <span style="font-size: 1.15rem; font-weight: 700; color: {pres_data['action_color']};">
+                            STRATEGIC POSTURE: {pres_data['action']}
+                        </span>
+                        <span class="chip-blue">{pres_data['risk_tier']}</span>
+                    </div>
+                    <div style="font-weight: 600; color: #cbd5e1; font-size: 0.90rem; margin-bottom: 8px;">
+                        Quantitative Signal Rationales:
+                    </div>
+                    <ul style="color: #94a3b8; font-size: 0.88rem; margin: 0; padding-left: 20px; line-height: 1.6;">
                         {"".join([f"<li>{r}</li>" for r in pres_data['supporting_reasons']])}
                     </ul>
-                    <hr style="margin: 12px 0;">
+                    <hr style="margin: 14px 0;">
                     <small style="color: #64748b;">
                         <b>Academic Note:</b> These rule-based signals are derived deterministically from classical technical indicators 
                         (SMA Cross, RSI Overbought/Oversold thresholds, and Bollinger Band boundary conditions) for academic demonstration. 
@@ -863,7 +1179,7 @@ elif page == "Big Data Analytics":
 # PAGE E: STOCK PREDICTION
 # ══════════════════════════════════════════════════════════════
 elif page == "Stock Prediction":
-    st.title("Stock Prediction")
+    st.markdown("### Stock Prediction")
     st.caption("Chronological ML Splits, Feature Importance, Directional Accuracy, and Naive Baseline Benchmarks")
     st.markdown("---")
 
@@ -904,19 +1220,22 @@ elif page == "Stock Prediction":
     curr_sym = "₹" if ".NS" in sel_p_stock else "$"
     st.markdown(
         f"""
-        <div style="background-color: #121824; border: 1px solid #1e293b; border-left: 4px solid #38bdf8; border-radius: 6px; padding: 14px 18px; margin: 12px 0;">
-            <span style="color: #94a3b8; font-size: 0.82rem; text-transform: uppercase; font-weight: 600;">{pred_horizon}-Day Ahead Out-of-Sample Price Forecast</span>
-            <h3 style="margin: 4px 0 2px 0; color: #f8fafc;">{curr_sym}{ml_output['next_day_forecast']:,.2f} 
-            <span style="font-size: 0.95rem; color: {'#22c55e' if ml_output['predicted_change'] >= 0 else '#ef4444'};">
-            ({ml_output['predicted_change_pct']:+.2f}%)</span></h3>
-            <small style="color: #64748b;">Current Close: {curr_sym}{ml_output['current_price']:,.2f} | Expected Delta: {curr_sym}{ml_output['predicted_change']:+.2f} | Window: {ml_output['test_period']}</small>
+        <div style="background: linear-gradient(145deg, #121827 0%, #0d131f 100%); border: 1px solid var(--border-subtle); border-left: 4px solid var(--accent-cyan); border-radius: 6px; padding: 14px 18px; margin: 12px 0;">
+            <div style="color: #94a3b8; font-size: 0.74rem; text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em;">{pred_horizon}-Day Out-of-Sample Price Forecast</div>
+            <div style="display: flex; align-items: baseline; gap: 12px; margin: 4px 0;">
+                <span style="font-size: 1.6rem; font-weight: 800; color: #f8fafc; font-family: monospace;">{curr_sym}{ml_output['next_day_forecast']:,.2f}</span>
+                <span class="{'chip-green' if ml_output['predicted_change'] >= 0 else 'chip-red'}">
+                    {ml_output['predicted_change_pct']:+.2f}% expected move
+                </span>
+            </div>
+            <small style="color: #64748b;">Current Close: {curr_sym}{ml_output['current_price']:,.2f} | Expected Delta: {curr_sym}{ml_output['predicted_change']:+.2f} | Test Window: {ml_output['test_period']}</small>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
     # Actual vs Predicted Plotly Chart
-    st.markdown('<p class="term-header">Actual vs. Predicted Price (Out-of-Sample Test Evaluation)</p>', unsafe_allow_html=True)
+    st.markdown('<p class="term-header">Actual vs. Predicted Price (Out-of-Sample Test Window)</p>', unsafe_allow_html=True)
     viz = ml_output["viz_df"]
 
     fig_test = go.Figure()
@@ -926,7 +1245,7 @@ elif page == "Stock Prediction":
             y=viz["Actual_Close"],
             mode="lines",
             name="Actual Close",
-            line=dict(color="#38bdf8", width=1.8),
+            line=dict(color="#38bdf8", width=2.0),
         )
     )
     fig_test.add_trace(
@@ -935,7 +1254,7 @@ elif page == "Stock Prediction":
             y=viz["Predicted_Close"],
             mode="lines",
             name=f"Predicted ({chosen_algo})",
-            line=dict(color="#fb923c", width=1.6, dash="dash"),
+            line=dict(color="#fb923c", width=1.8, dash="dash"),
         )
     )
     fig_test.add_trace(
@@ -947,7 +1266,7 @@ elif page == "Stock Prediction":
             line=dict(color="#64748b", width=1.2, dash="dot"),
         )
     )
-    fig_test.update_layout(**_plotly_layout(height=390))
+    fig_test.update_layout(**_plotly_layout(height=400))
     st.plotly_chart(fig_test, use_container_width=True)
 
     # Feature Importance & Error Distribution
@@ -964,7 +1283,7 @@ elif page == "Stock Prediction":
             color_continuous_scale="Blues",
             template=PLOTLY_TEMPLATE,
         )
-        fig_fi.update_layout(paper_bgcolor=PLOTLY_CARD_BG, plot_bgcolor=PLOTLY_BG, height=270, coloraxis_showscale=False)
+        fig_fi.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=270, coloraxis_showscale=False)
         fig_fi.update_yaxes(autorange="reversed")
         st.plotly_chart(fig_fi, use_container_width=True)
 
@@ -976,7 +1295,7 @@ elif page == "Stock Prediction":
             color_discrete_sequence=["#a78bfa"],
             template=PLOTLY_TEMPLATE,
         )
-        fig_err.update_layout(paper_bgcolor=PLOTLY_CARD_BG, plot_bgcolor=PLOTLY_BG, height=270, showlegend=False)
+        fig_err.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=270, showlegend=False)
         st.plotly_chart(fig_err, use_container_width=True)
 
     # Multi-Model Benchmark Comparison Table
@@ -989,15 +1308,15 @@ elif page == "Stock Prediction":
 # PAGE F: PERFORMANCE BENCHMARK
 # ══════════════════════════════════════════════════════════════
 elif page == "Performance Benchmark":
-    st.title("Performance Benchmark")
+    st.markdown("### Performance Benchmark")
     st.caption("Empirical Runtime Profiling: In-Memory Pandas vs. Distributed Apache PySpark")
     st.markdown("---")
 
     st.markdown(
         """
-        <div style="background-color: #121824; border: 1px solid #1e293b; border-radius: 6px; padding: 14px 18px; margin-bottom: 14px;">
-            <small style="color: #38bdf8; font-weight: 600;">ACADEMIC BENCHMARK METHODOLOGY</small>
-            <p style="color: #cbd5e1; font-size: 0.9rem; margin: 4px 0 0 0;">
+        <div style="background: linear-gradient(145deg, #121827 0%, #0d131f 100%); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 14px 18px; margin-bottom: 14px;">
+            <div style="color: #38bdf8; font-size: 0.76rem; font-weight: 700; text-transform: uppercase;">Academic Benchmark Methodology</div>
+            <p style="color: #cbd5e1; font-size: 0.88rem; margin: 4px 0 0 0; line-height: 1.5;">
             This module benchmarks identical operations across varying row counts scaled from real market data.
             <b>Notice:</b> On modest record sizes (< 50,000 rows), Pandas executed natively in C is typically faster than PySpark 
             due to PySpark's fixed JVM startup, Py4J serialization, and DAG task scheduling overhead. 
@@ -1049,7 +1368,7 @@ elif page == "Performance Benchmark":
                     marker_color="#fb923c",
                 )
             )
-            fig_b.update_layout(**_plotly_layout(height=380), barmode="group", yaxis_title="Seconds")
+            fig_b.update_layout(**_plotly_layout(height=390), barmode="group", yaxis_title="Seconds")
             st.plotly_chart(fig_b, use_container_width=True)
 
         st.markdown("##### Detailed Measurement Ledger")
@@ -1060,7 +1379,7 @@ elif page == "Performance Benchmark":
 # PAGE G: PROJECT INFORMATION (ACADEMIC ABL SPECIFICATION)
 # ══════════════════════════════════════════════════════════════
 elif page == "Project Information":
-    st.title("Project Information")
+    st.markdown("### Project Information")
     st.caption("Activity-Based Learning (ABL) Academic Project Documentation")
     st.markdown("---")
 
@@ -1143,7 +1462,12 @@ elif page == "Project Information":
 # INSTITUTIONAL FOOTER
 # ─────────────────────────────────────────────────────────────
 st.markdown("---")
-st.caption(
-    "StockSense Financial Terminal · Academic Activity-Based Learning (ABL) Project · "
-    "Apache Spark & Machine Learning Demonstration · For Educational Purposes Only."
+st.markdown(
+    """
+    <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 0; color: #64748b; font-size: 0.75rem;">
+        <span>StockSense Enterprise Terminal · Activity-Based Learning (ABL) Demonstration</span>
+        <span>Apache PySpark 3.5 · Python 3.12 · Machine Learning</span>
+    </div>
+    """,
+    unsafe_allow_html=True,
 )
