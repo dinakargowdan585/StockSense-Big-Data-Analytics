@@ -48,8 +48,67 @@ def _validate_tickers(tickers: list[str]) -> list[str]:
     return cleaned
 
 
+def validate_ohlcv_data(df: pd.DataFrame) -> Tuple[pd.DataFrame, dict[str, Any]]:
+    """Validate standard financial OHLC relationships and data integrity.
+
+    Integrity checks:
+    - High >= Open and High >= Close
+    - Low <= Open and Low <= Close
+    - High >= Low
+    - Volume >= 0
+    - Chronological sorting
+
+    Returns cleaned DataFrame and a validation audit dictionary.
+    """
+    if df is None or df.empty:
+        raise ValueError("Cannot validate empty DataFrame.")
+
+    data = df.copy()
+    
+    # Identify price columns defensively
+    cols = {str(c).lower().replace(" ", "_"): c for c in data.columns}
+    open_c = cols.get("open")
+    high_c = cols.get("high")
+    low_c = cols.get("low")
+    close_c = cols.get("adj_close") or cols.get("close")
+    vol_c = cols.get("volume")
+
+    total_records = len(data)
+    invalid_mask = pd.Series(False, index=data.index)
+
+    # Validate OHLC geometric boundaries if columns are present
+    if open_c and high_c and low_c and close_c:
+        h_lt_o = data[high_c] < data[open_c]
+        h_lt_c = data[high_c] < data[close_c]
+        l_gt_o = data[low_c] > data[open_c]
+        l_gt_c = data[low_c] > data[close_c]
+        h_lt_l = data[high_c] < data[low_c]
+        invalid_mask = h_lt_o | h_lt_c | l_gt_o | l_gt_c | h_lt_l
+
+    if vol_c:
+        neg_vol = data[vol_c] < 0
+        invalid_mask = invalid_mask | neg_vol
+
+    invalid_count = int(invalid_mask.sum())
+    
+    # Filter out invalid records if any violation detected
+    if invalid_count > 0:
+        cleaned_data = data[~invalid_mask].copy()
+    else:
+        cleaned_data = data
+
+    audit_report = {
+        "total_records": total_records,
+        "valid_records": len(cleaned_data),
+        "invalid_ohlcv_flagged": invalid_count,
+        "treatment": "Excluded rows violating geometric OHLC bounds (High >= Open/Close, Low <= Open/Close, Volume >= 0)",
+    }
+
+    return cleaned_data, audit_report
+
+
 def _clean_ohlcv_data(raw_data: pd.DataFrame) -> pd.DataFrame:
-    """Clean OHLCV data and enforce a no-missing-values output."""
+    """Clean OHLCV data without backward filling (prevents lookahead data leakage)."""
     if raw_data is None or raw_data.empty:
         raise ValueError("No data returned from data source.")
 
@@ -69,9 +128,12 @@ def _clean_ohlcv_data(raw_data: pd.DataFrame) -> pd.DataFrame:
         if failed_tickers:
             data = data.drop(columns=failed_tickers, level=ticker_level)
 
+    # Strictly preserve chronological ordering
     data = data.sort_index()
     data = data.dropna(how="all")
-    data = data.ffill().bfill()
+    
+    # Forward-fill only within historical sequence; strictly NO backward-fill to prevent future leakage
+    data = data.ffill()
     data = data.dropna(how="any")
 
     if data.empty:
@@ -80,7 +142,9 @@ def _clean_ohlcv_data(raw_data: pd.DataFrame) -> pd.DataFrame:
             "Try a different period or ticker set."
         )
 
-    return data
+    # Validate OHLC bounds
+    validated, _ = validate_ohlcv_data(data)
+    return validated
 
 
 def get_stock_data(tickers: list[str], period: str = "1y") -> pd.DataFrame:
