@@ -251,6 +251,91 @@ def load_local_dataset(filepath: str | Path) -> pd.DataFrame:
     return _clean_ohlcv_data(df)
 
 
+def get_raw_metadata(df: pd.DataFrame, source_name: str, format_type: str = "CSV") -> dict[str, Any]:
+    """Extract descriptive schema and volumetric metadata from a raw un-processed DataFrame."""
+    if df is None or df.empty:
+        return {}
+
+    start_dt = "Unknown"
+    end_dt = "Unknown"
+    if isinstance(df.index, pd.DatetimeIndex) and len(df.index) > 0:
+        start_dt = df.index[0].strftime("%b %d, %Y")
+        end_dt = df.index[-1].strftime("%b %d, %Y")
+    elif len(df) > 0:
+        start_dt = str(df.index[0])
+        end_dt = str(df.index[-1])
+
+    cols = [str(c) for c in df.columns]
+    dtypes_dict = {str(c): str(t) for c, t in df.dtypes.items()}
+
+    return {
+        "source_name": source_name,
+        "format": format_type,
+        "rows": len(df),
+        "columns": len(df.columns),
+        "column_names": cols,
+        "dtypes": dtypes_dict,
+        "start_date": start_dt,
+        "end_date": end_dt,
+        "date_range": f"{start_dt} to {end_dt}",
+    }
+
+
+def load_raw_dataset(filepath: str | Path) -> Tuple[pd.DataFrame, dict[str, Any]]:
+    """Load a local dataset preserving raw observations without ETL transformations."""
+    path = Path(filepath)
+    if not path.exists():
+        raise FileNotFoundError(f"Dataset file not found: {path}")
+
+    if path.suffix.lower() == ".parquet" or path.is_dir():
+        df = pd.read_parquet(path)
+        fmt = "PARQUET"
+    elif path.suffix.lower() == ".csv":
+        df = pd.read_csv(path)
+        fmt = "CSV"
+    else:
+        raise ValueError(f"Unsupported format: {path.suffix}. Must be CSV or Parquet.")
+
+    date_candidates = [c for c in df.columns if "date" in str(c).lower()]
+    if date_candidates:
+        date_col = date_candidates[0]
+        df[date_col] = pd.to_datetime(df[date_col])
+        df = df.set_index(date_col)
+    elif not isinstance(df.index, pd.DatetimeIndex):
+        try:
+            df.index = pd.to_datetime(df.index)
+        except Exception:
+            pass
+
+    df = df.sort_index()
+    meta = get_raw_metadata(df, source_name=path.name, format_type=fmt)
+    return df, meta
+
+
+def parse_raw_uploaded_file(uploaded_file: Any) -> Tuple[pd.DataFrame, str, dict[str, Any]]:
+    """Parse a user-uploaded file without applying ETL transformations."""
+    file_name = uploaded_file.name
+    if file_name.endswith(".parquet"):
+        df = pd.read_parquet(uploaded_file)
+        fmt = "PARQUET"
+    elif file_name.endswith(".csv"):
+        df = pd.read_csv(uploaded_file)
+        fmt = "CSV"
+    else:
+        raise ValueError("Uploaded file must be a .csv or .parquet file.")
+
+    date_candidates = [c for c in df.columns if "date" in str(c).lower()]
+    if date_candidates:
+        date_col = date_candidates[0]
+        df[date_col] = pd.to_datetime(df[date_col])
+        df = df.set_index(date_col)
+
+    df = df.sort_index()
+    ticker = Path(file_name).stem.upper()
+    meta = get_raw_metadata(df, source_name=file_name, format_type=fmt)
+    return df, ticker, meta
+
+
 def parse_uploaded_file(uploaded_file: Any) -> Tuple[pd.DataFrame, str]:
     """Parse a user-uploaded CSV or Parquet file in Streamlit."""
     file_name = uploaded_file.name

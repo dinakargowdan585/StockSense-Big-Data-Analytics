@@ -1,11 +1,13 @@
 """StockSense: Big Data Analytics in Stock Market Prediction.
 
 Focused Stock Market Prediction Application:
+- User-Controlled Workflow:
+  1. Import Data -> 2. Preview Raw Data -> 3. Process Data -> 4. User Clicks Predict -> 5. Display Results
 - Big Data processing with Apache PySpark 3.5 & Parquet Columnar Storage
 - Feature Engineering (PySpark Window Functions, Moving Averages, Lags, Volatility)
 - Chronological Machine Learning (Linear Regression, Random Forest, Gradient Boosting)
 - Out-of-sample Test Benchmarking against Naive Persistence Baseline
-- Professional Financial Analytics UI/UX Architecture
+- Professional Institutional Financial Terminal UI
 """
 
 from __future__ import annotations
@@ -43,10 +45,13 @@ from src.data_fetcher import (
     NSE_PRESETS,
     US_PRESETS,
     get_processed_data_dir,
+    get_raw_metadata,
     get_sample_data_dir,
     get_stock_data,
     list_sample_datasets,
     load_local_dataset,
+    load_raw_dataset,
+    parse_raw_uploaded_file,
     parse_uploaded_file,
 )
 from src.ml_predictor import (
@@ -57,7 +62,7 @@ from src.ml_predictor import (
 from src.spark_engine import get_spark_status, process_stock_data_spark
 
 # ─────────────────────────────────────────────────────────────
-# PAGE CONFIGURATION (CLEAN, NO EMOJIS)
+# PAGE CONFIGURATION
 # ─────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="StockSense | Stock Market Prediction",
@@ -218,6 +223,63 @@ st.markdown(
         margin-bottom: 24px;
     }
 
+    /* Workflow Stepper Bar */
+    .workflow-tracker {
+        display: flex;
+        align-items: center;
+        background: #080808;
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        padding: 12px 18px;
+        margin-bottom: 20px;
+        gap: 12px;
+        overflow-x: auto;
+    }
+    .wf-step {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .wf-badge-done {
+        background: rgba(16, 185, 129, 0.15);
+        color: #10b981;
+        border: 1px solid rgba(16, 185, 129, 0.3);
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        font-family: 'JetBrains Mono', monospace;
+    }
+    .wf-badge-active {
+        background: rgba(245, 158, 11, 0.15);
+        color: #f59e0b;
+        border: 1px solid rgba(245, 158, 11, 0.3);
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        font-family: 'JetBrains Mono', monospace;
+    }
+    .wf-badge-pending {
+        background: #171717;
+        color: #737373;
+        border: 1px solid #262626;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 0.72rem;
+        font-weight: 600;
+        font-family: 'JetBrains Mono', monospace;
+    }
+    .wf-label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #f8fafc;
+    }
+    .wf-arrow {
+        color: #404040;
+        font-size: 0.85rem;
+    }
+
     /* Pipeline Step Strip */
     .pipeline-strip {
         display: flex;
@@ -286,7 +348,7 @@ st.markdown(
 )
 
 # ─────────────────────────────────────────────────────────────
-# PLOTLY TRUE BLACK FINANCIAL THEME
+# PLOTLY TRUE BLACK THEME
 # ─────────────────────────────────────────────────────────────
 GRID_COLOR = "#1a1a1a"
 
@@ -339,7 +401,7 @@ st.markdown(
 )
 
 # ─────────────────────────────────────────────────────────────
-# SIDEBAR NAVIGATION & DATA INGESTION
+# SIDEBAR NAVIGATION & DATASET SELECTION
 # ─────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown(
@@ -376,19 +438,73 @@ with st.sidebar:
     st.markdown('<p class="section-label">Data Ingestion Source</p>', unsafe_allow_html=True)
     data_mode = st.radio(
         "Ingestion Source",
-        ["Live (Yahoo Finance)", "Offline Sample Dataset", "Upload File (CSV/Parquet)"],
+        ["Offline Sample Dataset", "Live (Yahoo Finance)", "Upload File (CSV/Parquet)"],
         index=0,
         label_visibility="collapsed",
     )
 
-    df_raw: pd.DataFrame = pd.DataFrame()
+    uploaded = None
+    if data_mode == "Upload File (CSV/Parquet)":
+        uploaded = st.file_uploader("Upload Historical Stock File", type=["csv", "parquet"])
+
+    st.markdown("---")
+    st.markdown('<p class="section-label">System Status</p>', unsafe_allow_html=True)
+    spark_info = get_spark_status()
+    if spark_info["pyspark_installed"]:
+        st.markdown('<span class="status-tag">Engine: Apache Spark 3.5</span>', unsafe_allow_html=True)
+    else:
+        st.markdown('<span class="status-tag">Engine: Pandas Fallback</span>', unsafe_allow_html=True)
+
+# ─────────────────────────────────────────────────────────────
+# SESSION STATE & USER-CONTROLLED WORKFLOW MANAGEMENT
+# ─────────────────────────────────────────────────────────────
+# Determine unique dataset key to detect dataset changes
+if data_mode == "Live (Yahoo Finance)":
+    dataset_key = f"LIVE_{selected_stock}"
+elif data_mode == "Offline Sample Dataset":
+    dataset_key = f"SAMPLE_{selected_stock}"
+elif data_mode == "Upload File (CSV/Parquet)":
+    dataset_key = f"UPLOAD_{uploaded.name}_{uploaded.size}" if uploaded else "UPLOAD_NONE"
+
+# Initialize session state keys
+if "active_dataset_key" not in st.session_state:
+    st.session_state["active_dataset_key"] = None
+if "processing_completed" not in st.session_state:
+    st.session_state["processing_completed"] = False
+if "prediction_completed" not in st.session_state:
+    st.session_state["prediction_completed"] = False
+if "raw_df" not in st.session_state:
+    st.session_state["raw_df"] = pd.DataFrame()
+if "processed_df" not in st.session_state:
+    st.session_state["processed_df"] = None
+if "spark_results" not in st.session_state:
+    st.session_state["spark_results"] = None
+if "prediction_results" not in st.session_state:
+    st.session_state["prediction_results"] = None
+if "raw_metadata" not in st.session_state:
+    st.session_state["raw_metadata"] = {}
+
+# Reset workflow when dataset changes
+if st.session_state["active_dataset_key"] != dataset_key:
+    st.session_state["active_dataset_key"] = dataset_key
+    st.session_state["processing_completed"] = False
+    st.session_state["prediction_completed"] = False
+    st.session_state["processed_df"] = None
+    st.session_state["spark_results"] = None
+    st.session_state["prediction_results"] = None
+    st.session_state["raw_df"] = pd.DataFrame()
+    st.session_state["raw_metadata"] = {}
+
+    df_raw = pd.DataFrame()
+    meta = {}
     data_source_badge = ""
     data_source_type = ""
 
     if data_mode == "Live (Yahoo Finance)":
-        with st.spinner(f"Fetching market data for {selected_stock}..."):
+        with st.spinner(f"Fetching raw market data for {selected_stock}..."):
             try:
                 df_raw = _cached_api_load(selected_stock, period="1y")
+                meta = get_raw_metadata(df_raw, source_name=f"{selected_stock} (Yahoo Finance Live)", format_type="LIVE API")
                 data_source_badge = "Live Market Data (Yahoo Finance)"
                 data_source_type = "LIVE"
             except Exception as exc:
@@ -398,12 +514,9 @@ with st.sidebar:
                 if not sample_p.exists():
                     sample_p = get_sample_data_dir() / f"{selected_stock}.parquet"
                 if sample_p.exists():
-                    df_raw = load_local_dataset(sample_p)
-                    data_source_badge = "Offline Sample Dataset"
+                    df_raw, meta = load_raw_dataset(sample_p)
+                    data_source_badge = f"Offline Sample Dataset ({sample_p.name})"
                     data_source_type = "SAMPLE"
-                else:
-                    st.error("Offline dataset not found.")
-                    st.stop()
 
     elif data_mode == "Offline Sample Dataset":
         sample_files = list_sample_datasets()
@@ -417,73 +530,68 @@ with st.sidebar:
 
         if matching_sample:
             try:
-                df_raw = load_local_dataset(matching_sample["path"])
+                df_raw, meta = load_raw_dataset(matching_sample["path"])
                 data_source_badge = f"Offline Sample Dataset ({matching_sample['filename']})"
                 data_source_type = "SAMPLE"
             except Exception as exc:
                 st.error(f"Error loading offline file: {exc}")
-                st.stop()
-        else:
-            st.error("No sample datasets discovered in data/sample/.")
-            st.stop()
 
     elif data_mode == "Upload File (CSV/Parquet)":
-        uploaded = st.file_uploader("Upload Historical Stock File", type=["csv", "parquet"])
         if uploaded is not None:
             try:
-                df_raw, up_ticker = parse_uploaded_file(uploaded)
+                df_raw, up_ticker, meta = parse_raw_uploaded_file(uploaded)
                 selected_stock = up_ticker
                 data_source_badge = f"Uploaded File ({uploaded.name})"
                 data_source_type = "UPLOAD"
             except Exception as exc:
                 st.error(f"Error parsing uploaded file: {exc}")
-                st.stop()
+
+    # Standardize column structure for raw dataframe without applying any ETL
+    if not df_raw.empty:
+        if isinstance(df_raw.columns, pd.MultiIndex):
+            if selected_stock in df_raw.columns.get_level_values(1):
+                df_flat = df_raw.xs(selected_stock, axis=1, level=1).copy()
+            else:
+                df_flat = df_raw.iloc[:, :6].copy()
         else:
-            st.info("Upload a historical stock CSV or Parquet file to proceed.")
-            st.stop()
+            df_flat = df_raw.copy()
 
-    st.markdown("---")
-    st.markdown('<p class="section-label">System Status</p>', unsafe_allow_html=True)
-    spark_info = get_spark_status()
-    if spark_info["pyspark_installed"]:
-        st.markdown('<span class="status-tag">Engine: Apache Spark 3.5</span>', unsafe_allow_html=True)
-    else:
-        st.markdown('<span class="status-tag">Engine: Pandas Fallback</span>', unsafe_allow_html=True)
+        meta["rows"] = len(df_flat)
+        meta["columns"] = len(df_flat.columns)
+        meta["column_names"] = list(df_flat.columns)
+        meta["dtypes"] = {str(c): str(t) for c, t in df_flat.dtypes.items()}
+        if isinstance(df_flat.index, pd.DatetimeIndex) and len(df_flat.index) > 0:
+            meta["date_range"] = f"{df_flat.index[0].strftime('%b %d, %Y')} to {df_flat.index[-1].strftime('%b %d, %Y')}"
+            meta["start_date"] = df_flat.index[0].strftime("%b %d, %Y")
+            meta["end_date"] = df_flat.index[-1].strftime("%b %d, %Y")
 
-    feed_class = "chip-green" if data_source_type == "LIVE" else "chip-neutral"
-    st.markdown(f'<div style="margin-top: 6px;"><span class="{feed_class}">Feed: {data_source_type}</span></div>', unsafe_allow_html=True)
+        st.session_state["raw_df"] = df_flat
+        st.session_state["raw_metadata"] = meta
+        st.session_state["data_source_badge"] = data_source_badge
+        st.session_state["data_source_type"] = data_source_type
+        st.session_state["selected_stock"] = selected_stock
 
-# ─────────────────────────────────────────────────────────────
-# DATA SANITY & ETL EXECUTION OR RETRIEVAL
-# ─────────────────────────────────────────────────────────────
-if df_raw.empty:
-    st.warning("No data available for the selected stock. Please select another stock or source.")
-    st.stop()
-
-close_col = "Adj Close" if "Adj Close" in df_raw.columns else ("Close" if "Close" in df_raw.columns else df_raw.columns[0])
-if isinstance(df_raw.columns, pd.MultiIndex):
-    if selected_stock in df_raw.columns.get_level_values(1):
-        df_flat = df_raw.xs(selected_stock, axis=1, level=1).copy()
-    else:
-        df_flat = df_raw.iloc[:, :6].copy()
-else:
-    df_flat = df_raw.copy()
-
+# Retrieve current state
+df_flat = st.session_state["raw_df"]
+raw_metadata = st.session_state.get("raw_metadata", {})
+data_source_badge = st.session_state.get("data_source_badge", "")
+data_source_type = st.session_state.get("data_source_type", "")
+selected_stock = st.session_state.get("selected_stock", selected_stock)
 currency_sym = "₹" if selected_stock.endswith(".NS") else "$"
-
-cache_key = f"spark_processed_{selected_stock}"
 proc_dir = str(get_processed_data_dir())
 
-if cache_key not in st.session_state:
-    with st.spinner(f"Running Spark distributed ETL pipeline for {selected_stock}..."):
-        st.session_state[cache_key] = process_stock_data_spark(
-            df_flat,
-            ticker=selected_stock,
-            output_dir=proc_dir,
-        )
+feed_class = "chip-green" if data_source_type == "LIVE" else "chip-neutral"
+with st.sidebar:
+    st.markdown(f'<div style="margin-top: 6px;"><span class="{feed_class}">Feed: {data_source_type or "INITIALIZING"}</span></div>', unsafe_allow_html=True)
 
-spark_results = st.session_state[cache_key]
-processed_df = spark_results.get("processed_df", df_flat)
+if df_flat.empty:
+    if data_mode == "Upload File (CSV/Parquet)":
+        st.info("Please upload a historical stock CSV or Parquet file from the sidebar to begin.")
+    else:
+        st.warning("No data available for the selected stock. Please select another stock or source.")
+    st.stop()
+
+close_col = "Adj Close" if "Adj Close" in df_flat.columns else ("Close" if "Close" in df_flat.columns else df_flat.columns[0])
 
 
 # ══════════════════════════════════════════════════════════════
@@ -491,96 +599,254 @@ processed_df = spark_results.get("processed_df", df_flat)
 # ══════════════════════════════════════════════════════════════
 if page == "Prediction Dashboard":
     st.markdown(f"### Stock Prediction Dashboard: {selected_stock}")
-    st.caption(f"Big Data Feature Pipeline & Chronological Machine Learning Forecast | {data_source_badge}")
+    st.caption(f"User-Controlled Big Data Analytics & Stock Prediction Pipeline | {data_source_badge}")
     st.markdown("---")
 
-    latest_close = float(df_flat[close_col].iloc[-1])
-    latest_date = df_flat.index[-1].strftime("%b %d, %Y") if hasattr(df_flat.index[-1], "strftime") else str(df_flat.index[-1])
-    prev_close = float(df_flat[close_col].iloc[-2]) if len(df_flat) > 1 else latest_close
-    day_change = latest_close - prev_close
-    day_pct = (day_change / prev_close) * 100.0 if prev_close != 0 else 0.0
+    # ─────────────────────────────────────────────────────────
+    # WORKFLOW STATUS TRACKER
+    # ─────────────────────────────────────────────────────────
+    proc_badge = "wf-badge-done" if st.session_state["processing_completed"] else "wf-badge-pending"
+    proc_status = "03 PROCESSED (PySpark) ✓" if st.session_state["processing_completed"] else "03 PROCESS DATA (Pending)"
 
-    # Top KPI Row
-    kpi_col1, kpi_col2, kpi_col3 = st.columns([1.2, 1.2, 1.6])
-    with kpi_col1:
+    pred_badge = "wf-badge-done" if st.session_state["prediction_completed"] else "wf-badge-pending"
+    pred_status = "04 PREDICTION GENERATED ✓" if st.session_state["prediction_completed"] else "04 PREDICTION (Pending)"
+
+    st.markdown(
+        f"""
+        <div class="workflow-tracker">
+            <div class="wf-step">
+                <span class="wf-badge-done">01 IMPORTED ✓</span>
+                <span class="wf-label">{selected_stock}</span>
+            </div>
+            <span class="wf-arrow">→</span>
+            <div class="wf-step">
+                <span class="wf-badge-done">02 RAW PREVIEW ✓</span>
+                <span class="wf-label">{len(df_flat)} Records</span>
+            </div>
+            <span class="wf-arrow">→</span>
+            <div class="wf-step">
+                <span class="{proc_badge}">{proc_status}</span>
+            </div>
+            <span class="wf-arrow">→</span>
+            <div class="wf-step">
+                <span class="{pred_badge}">{pred_status}</span>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # ─────────────────────────────────────────────────────────
+    # SECTION 1: RAW DATA IMPORT & PREVIEW (MANDATORY FIRST STEP)
+    # ─────────────────────────────────────────────────────────
+    st.markdown('<p class="section-label">1. Imported Raw Data Preview & Schema Inspection</p>', unsafe_allow_html=True)
+
+    # Raw Metadata Summary KPI Cards
+    raw_kpi1, raw_kpi2, raw_kpi3, raw_kpi4 = st.columns([1.3, 1.2, 1.5, 1.0])
+    with raw_kpi1:
         st.markdown(
             f"""
             <div class="metric-card">
-                <div class="metric-title">Selected Stock</div>
-                <div class="metric-value">{selected_stock}</div>
-                <div class="metric-sub">Exchange: {'National Stock Exchange (NSE)' if selected_stock.endswith('.NS') else 'US Equities (NASDAQ/NYSE)'}</div>
+                <div class="metric-title">Source File / Feed</div>
+                <div class="metric-value" style="font-size: 1.15rem;">{raw_metadata.get('source_name', data_source_badge)}</div>
+                <div class="metric-sub">Exchange: {'NSE India' if selected_stock.endswith('.NS') else 'US Equities (NASDAQ/NYSE)'}</div>
             </div>
             """,
             unsafe_allow_html=True,
         )
-    with kpi_col2:
-        change_class = "chip-green" if day_change >= 0 else "chip-red"
+    with raw_kpi2:
         st.markdown(
             f"""
             <div class="metric-card">
-                <div class="metric-title">Latest Close ({latest_date})</div>
-                <div class="metric-value">{currency_sym}{latest_close:,.2f}</div>
-                <div class="metric-sub"><span class="{change_class}">{day_change:+.2f} ({day_pct:+.2f}%)</span> vs prev day</div>
+                <div class="metric-title">Raw Dimensions</div>
+                <div class="metric-value">{len(df_flat)} <span style="font-size: 0.9rem; color: #737373;">Rows</span></div>
+                <div class="metric-sub">{len(df_flat.columns)} Columns Ingested</div>
             </div>
             """,
             unsafe_allow_html=True,
         )
-    with kpi_col3:
+    with raw_kpi3:
         st.markdown(
             f"""
             <div class="metric-card">
-                <div class="metric-title">Data Ingestion Origin</div>
-                <div class="metric-value" style="font-size: 1.2rem;">{data_source_badge.split('(')[0].strip()}</div>
-                <div class="metric-sub">{len(df_flat)} Records Available | Processed with PySpark</div>
+                <div class="metric-title">Historical Date Range</div>
+                <div class="metric-value" style="font-size: 1.1rem;">{raw_metadata.get('start_date', 'N/A')}</div>
+                <div class="metric-sub">Through {raw_metadata.get('end_date', 'N/A')}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    with raw_kpi4:
+        st.markdown(
+            """
+            <div class="metric-card">
+                <div class="metric-title">Pipeline Status</div>
+                <div class="metric-value" style="font-size: 1.1rem; color: #f59e0b;">RAW</div>
+                <div class="metric-sub">No ETL Applied Yet</div>
             </div>
             """,
             unsafe_allow_html=True,
         )
 
-    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
 
-    # Historical Stock Price Chart
-    st.markdown('<p class="section-label">Historical Stock Price Action & Moving Averages</p>', unsafe_allow_html=True)
+    # Raw Data Table Controls: Row Count Selector & Download Button
+    tbl_col1, tbl_col2, tbl_col3 = st.columns([1.5, 2.0, 1.2])
+    with tbl_col1:
+        row_limit = st.selectbox(
+            "Records to display:",
+            options=[10, 25, 50, 100, "All Records"],
+            index=0,
+            key="raw_row_limit",
+        )
+    with tbl_col2:
+        with st.expander("Inspect Column Schema & Data Types"):
+            schema_records = [{"Column Name": c, "Data Type": str(t)} for c, t in df_flat.dtypes.items()]
+            st.dataframe(pd.DataFrame(schema_records), use_container_width=True)
+    with tbl_col3:
+        st.markdown("<div style='height: 24px;'></div>", unsafe_allow_html=True)
+        csv_data = df_flat.to_csv(index=True)
+        st.download_button(
+            label="Download Raw CSV",
+            data=csv_data,
+            file_name=f"{selected_stock}_raw_data.csv",
+            mime="text/csv",
+            use_container_width=True,
+        )
 
-    fig_hist = go.Figure()
-    fig_hist.add_trace(
+    # Render Raw Data Table
+    display_rows = len(df_flat) if row_limit == "All Records" else int(row_limit)
+    st.dataframe(df_flat.head(display_rows), use_container_width=True)
+
+    # Historical Raw Closing Price Action Chart
+    fig_raw = go.Figure()
+    fig_raw.add_trace(
         go.Scatter(
             x=df_flat.index,
             y=df_flat[close_col],
-            name="Close Price",
+            name="Raw Close Price",
             mode="lines",
             line=dict(color="#ffffff", width=1.8),
         )
     )
-    if "SMA_20" in processed_df.columns:
-        fig_hist.add_trace(
-            go.Scatter(
-                x=df_flat.index,
-                y=processed_df["SMA_20"].values,
-                name="20-Day SMA (PySpark)",
-                mode="lines",
-                line=dict(color="#f59e0b", width=1.5, dash="dot"),
-            )
-        )
-    if "SMA_50" in processed_df.columns:
-        fig_hist.add_trace(
-            go.Scatter(
-                x=df_flat.index,
-                y=processed_df["SMA_50"].values,
-                name="50-Day SMA (PySpark)",
-                mode="lines",
-                line=dict(color="#a78bfa", width=1.5, dash="dash"),
-            )
-        )
-    fig_hist.update_layout(
-        **_plotly_layout(f"{selected_stock} Historical Closing Price & Moving Averages", height=360),
+    fig_raw.update_layout(
+        **_plotly_layout(f"{selected_stock} Raw Closing Price Action (Unprocessed Ingestion)", height=280),
         xaxis_title="Date",
         yaxis_title=f"Price ({currency_sym})",
     )
-    st.plotly_chart(fig_hist, use_container_width=True)
+    st.plotly_chart(fig_raw, use_container_width=True)
 
-    # Prediction Controls
-    st.markdown('<p class="section-label">Prediction Configuration</p>', unsafe_allow_html=True)
+    st.markdown("---")
+
+    # ─────────────────────────────────────────────────────────
+    # SECTION 2: EXPLICIT DATA PROCESSING ACTION (USER-CONTROLLED)
+    # ─────────────────────────────────────────────────────────
+    st.markdown('<p class="section-label">2. Big Data Processing & Feature Engineering (Apache PySpark)</p>', unsafe_allow_html=True)
+
+    p_btn_col1, p_btn_col2 = st.columns([2.8, 1.2])
+    with p_btn_col1:
+        if not st.session_state["processing_completed"]:
+            st.markdown(
+                """
+                <div style="background: #080808; border: 1px solid var(--border-color); border-left: 3px solid #38bdf8; border-radius: 6px; padding: 12px 16px;">
+                    <span style="font-weight: 600; font-size: 0.85rem; color: #f8fafc;">Step 2: Processing Required</span>
+                    <p style="font-size: 0.78rem; color: #94a3b8; margin: 4px 0 0 0;">
+                        Click <b>"Process Data"</b> to validate geometric OHLC bounds, flag IQR outliers, and execute distributed PySpark Window functions (Lags 1-5, Moving Averages 5-50, and 20-Day Volatility).
+                    </p>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        else:
+            sp_res = st.session_state["spark_results"]
+            st.markdown(
+                f"""
+                <div style="background: #080808; border: 1px solid var(--border-color); border-left: 3px solid #10b981; border-radius: 6px; padding: 12px 16px;">
+                    <span style="font-weight: 600; font-size: 0.85rem; color: #10b981;">Data Processing Completed ✓</span>
+                    <span style="font-size: 0.78rem; color: #94a3b8; margin-left: 8px;">
+                        Engine: <b>{sp_res.get('engine')}</b> | {sp_res.get('processed_records')} Records Cleaned | {len(sp_res.get('generated_features', []))} Features Generated
+                    </span>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+    with p_btn_col2:
+        process_btn = st.button("Process Data (PySpark)", use_container_width=True, key="dashboard_process_btn")
+
+    if process_btn:
+        with st.spinner(f"Running Apache PySpark distributed ETL pipeline for {selected_stock}..."):
+            spark_results = process_stock_data_spark(
+                df_flat,
+                ticker=selected_stock,
+                output_dir=proc_dir,
+            )
+            st.session_state["spark_results"] = spark_results
+            st.session_state["processed_df"] = spark_results.get("processed_df", df_flat)
+            st.session_state["processing_completed"] = True
+            # Invalidate any previous prediction when re-processing
+            st.session_state["prediction_completed"] = False
+            st.session_state["prediction_results"] = None
+            st.success("Apache PySpark processing completed successfully.")
+            st.rerun()
+
+    # If processed, show summary telemetry & preview expander
+    if st.session_state["processing_completed"]:
+        sp_res = st.session_state["spark_results"]
+        pt1, pt2, pt3, pt4 = st.columns(4)
+        with pt1:
+            st.markdown(
+                f"""
+                <div class="metric-card">
+                    <div class="metric-title">Cleaned Records</div>
+                    <div class="metric-value">{sp_res['processed_records']}</div>
+                    <div class="metric-sub">Input: {sp_res['raw_records']} rows</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        with pt2:
+            st.markdown(
+                f"""
+                <div class="metric-card">
+                    <div class="metric-title">Outliers Flagged (IQR)</div>
+                    <div class="metric-value">{sp_res['outliers_detected']}</div>
+                    <div class="metric-sub">Preserved in <code>Outlier_Flag</code></div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        with pt3:
+            st.markdown(
+                f"""
+                <div class="metric-card">
+                    <div class="metric-title">ETL Duration & Partitions</div>
+                    <div class="metric-value">{sp_res['duration_seconds']}s</div>
+                    <div class="metric-sub">Partitions: {sp_res['partitions']}</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        with pt4:
+            st.markdown(
+                f"""
+                <div class="metric-card">
+                    <div class="metric-title">Parquet Storage Sink</div>
+                    <div class="metric-value" style="font-size: 1.05rem;">PERSISTED</div>
+                    <div class="metric-sub"><code>data/processed/</code></div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        with st.expander("Preview Processed Parquet Dataset (11 Engineered Features)"):
+            st.dataframe(st.session_state["processed_df"].tail(10), use_container_width=True)
+
+    st.markdown("---")
+
+    # ─────────────────────────────────────────────────────────
+    # SECTION 3: USER-CONTROLLED PREDICTION (EXPLICIT PREDICT BUTTON)
+    # ─────────────────────────────────────────────────────────
+    st.markdown('<p class="section-label">3. Machine Learning Stock Prediction</p>', unsafe_allow_html=True)
 
     ctrl_col1, ctrl_col2, ctrl_col3 = st.columns([1.5, 1.5, 1.0])
     with ctrl_col1:
@@ -598,165 +864,205 @@ if page == "Prediction Dashboard":
         )
     with ctrl_col3:
         st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
-        predict_btn = st.button("Generate Prediction", use_container_width=True)
-
-    # Session caching for trained model
-    pred_cache_key = f"pred_{selected_stock}_{model_choice}_{horizon_days}"
-    if pred_cache_key not in st.session_state or predict_btn:
-        with st.spinner(f"Training {model_choice} on chronological features..."):
-            try:
-                st.session_state[pred_cache_key] = train_and_evaluate_model(
-                    ohlcv_df=processed_df,
-                    model_name=model_choice,
-                    horizon=horizon_days,
-                    test_size=0.20,
-                )
-            except Exception as exc:
-                st.error(f"Prediction modeling error: {exc}")
-                st.stop()
-
-    pred_res = st.session_state[pred_cache_key]
-
-    forecast_price = pred_res["next_day_forecast"]
-    delta_val = pred_res["predicted_change"]
-    delta_pct = pred_res["predicted_change_pct"]
-    is_positive = delta_val >= 0
-
-    # FORECAST PANEL (Clean, Refined, High Visual Hierarchy)
-    move_color = "#10b981" if is_positive else "#ef4444"
-    move_symbol = "+" if is_positive else ""
-    move_badge = "chip-green" if is_positive else "chip-red"
-
-    st.markdown(
-        f"""
-        <div class="forecast-panel">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
-                <div>
-                    <div style="font-size: 0.76rem; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px;">
-                        Model Forecast | {pred_res['engine_name']}
-                    </div>
-                    <div style="font-size: 2.6rem; font-weight: 700; color: #ffffff; font-family: 'JetBrains Mono', monospace; line-height: 1.1;">
-                        {currency_sym}{forecast_price:,.2f}
-                    </div>
-                    <div style="margin-top: 10px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                        <span class="{move_badge}" style="font-size: 0.95rem; padding: 4px 10px;">
-                            Expected Move: {move_symbol}{currency_sym}{abs(delta_val):.2f} ({move_symbol}{delta_pct:.2f}%)
-                        </span>
-                        <span style="font-size: 0.8rem; color: #94a3b8;">
-                            Origin: <b>{pred_res['forecast_origin_date']}</b> → Target Session: <b style="color: #ffffff;">{pred_res['target_trading_date']} (T+{horizon_days})</b>
-                        </span>
-                    </div>
-                </div>
-                <div style="background: #090d14; border: 1px solid var(--border-color); border-radius: 6px; padding: 14px 18px; min-width: 260px;">
-                    <div style="font-size: 0.72rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 8px;">
-                        Out-of-Sample Test Reliability
-                    </div>
-                    <div style="font-size: 0.82rem; color: #cbd5e1; display: flex; justify-content: space-between; margin-bottom: 4px;">
-                        <span>Test MAE:</span> <b class="mono-num">{currency_sym}{pred_res['mae']:.2f}</b>
-                    </div>
-                    <div style="font-size: 0.82rem; color: #cbd5e1; display: flex; justify-content: space-between; margin-bottom: 4px;">
-                        <span>Test RMSE:</span> <b class="mono-num">{currency_sym}{pred_res['rmse']:.2f}</b>
-                    </div>
-                    <div style="font-size: 0.82rem; color: #cbd5e1; display: flex; justify-content: space-between; margin-bottom: 4px;">
-                        <span>Model Dir. Accuracy:</span> <b class="mono-num" style="color: {'#10b981' if pred_res['directional_accuracy_pct'] >= 50 else '#ef4444'};">{pred_res['directional_accuracy_pct']:.1f}%</b>
-                    </div>
-                    <div style="font-size: 0.82rem; color: #cbd5e1; display: flex; justify-content: space-between;">
-                        <span>Baseline Dir. Accuracy:</span> <b class="mono-num">{pred_res['baseline_directional_acc']:.1f}%</b>
-                    </div>
-                </div>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    # Actual versus Predicted Historical Chart
-    st.markdown('<p class="section-label">Actual vs. Predicted Historical Performance (Test Window)</p>', unsafe_allow_html=True)
-
-    viz_df = pred_res["viz_df"]
-    fig_pred = go.Figure()
-    fig_pred.add_trace(
-        go.Scatter(
-            x=viz_df.index,
-            y=viz_df["Actual_Close"],
-            name="Actual Close",
-            mode="lines+markers",
-            line=dict(color="#ffffff", width=2),
-            marker=dict(size=4),
+        predict_btn = st.button(
+            "Generate Prediction",
+            disabled=not st.session_state["processing_completed"],
+            use_container_width=True,
+            key="dashboard_predict_btn",
         )
-    )
-    fig_pred.add_trace(
-        go.Scatter(
-            x=viz_df.index,
-            y=viz_df["Predicted_Close"],
-            name=f"Predicted ({pred_res['engine_name']})",
-            mode="lines",
-            line=dict(color="#f59e0b", width=1.8, dash="dash"),
-        )
-    )
-    fig_pred.add_trace(
-        go.Scatter(
-            x=viz_df.index,
-            y=viz_df["Naive_Baseline"],
-            name="Naive Baseline (Close[t-1])",
-            mode="lines",
-            line=dict(color="#64748b", width=1.5, dash="dot"),
-        )
-    )
-    fig_pred.update_layout(
-        **_plotly_layout(
-            f"{selected_stock}: Ground Truth vs. {pred_res['engine_name']} Forecasts ({pred_res['test_period']})",
-            height=380,
-        ),
-        xaxis_title="Date",
-        yaxis_title=f"Price ({currency_sym})",
-    )
-    st.plotly_chart(fig_pred, use_container_width=True)
 
-    # Prediction Summary
-    st.markdown('<p class="section-label">Prediction Summary & Feature Contribution</p>', unsafe_allow_html=True)
+    # Invalidate prediction if horizon or model changed
+    if (
+        st.session_state.get("active_horizon") != horizon_days
+        or st.session_state.get("active_model") != model_choice
+    ):
+        st.session_state["prediction_completed"] = False
+        st.session_state["prediction_results"] = None
 
-    sum_col1, sum_col2 = st.columns([1.6, 1.4])
-    with sum_col1:
+    # Status instructions before Predict is clicked
+    if not st.session_state["processing_completed"]:
         st.markdown(
-            f"""
-            <div class="metric-card">
-                <div style="font-weight: 600; font-size: 0.9rem; color: #f8fafc; margin-bottom: 6px;">
-                    Model Interpretation & Methodology
-                </div>
-                <p style="font-size: 0.82rem; color: #94a3b8; line-height: 1.5; margin-bottom: 8px;">
-                    The <b>{pred_res['engine_name']}</b> projects an estimated price of 
-                    <b style="color: #ffffff;">{currency_sym}{forecast_price:,.2f}</b> over a horizon of <b>{horizon_days} trading session{'s' if horizon_days > 1 else ''}</b>, 
-                    representing an expected move of <b style="color: {move_color};">{move_symbol}{delta_pct:.2f}%</b> from the latest close of {currency_sym}{latest_close:,.2f}.
-                </p>
-                <p style="font-size: 0.82rem; color: #94a3b8; line-height: 1.5; margin-bottom: 8px;">
-                    • <b>Origin to Target:</b> Forecast from origin <b>{pred_res['forecast_origin_date']}</b> targeting trading session <b>{pred_res['target_trading_date']}</b>.<br>
-                    • <b>Data Partition:</b> Evaluated across {pred_res['test_samples']} out-of-sample trading days ({pred_res['test_period']}) with strict chronological ordering.<br>
-                    • <b>Error Tolerance:</b> Out-of-sample Mean Absolute Error is ±{currency_sym}{pred_res['mae']:.2f} (RMSE: ±{currency_sym}{pred_res['rmse']:.2f}).<br>
-                    • <b>Baseline Comparison:</b> Naive Persistence baseline achieved an MAE of ±{currency_sym}{pred_res['baseline_mae']:.2f}.
-                </p>
-                <div style="font-size: 0.74rem; color: #64748b;">
-                    Note: Forecasts are quantitative statistical estimates for academic demonstration in Big Data analytics. Financial markets involve non-stationarity and inherent capital risk; this is not financial investment advice.
+            """
+            <div style="background: #080808; border: 1px solid var(--border-color); border-left: 3px solid #737373; border-radius: 6px; padding: 14px 18px; margin-top: 10px;">
+                <div style="font-weight: 600; font-size: 0.85rem; color: #a3a3a3;">Prediction Disabled (Processing Required)</div>
+                <div style="font-size: 0.78rem; color: #737373; margin-top: 4px;">
+                    Machine learning models require engineered window features. Please click <b>"Process Data"</b> above to run the PySpark pipeline before initiating prediction.
                 </div>
             </div>
             """,
             unsafe_allow_html=True,
         )
-    with sum_col2:
-        top_features = list(pred_res["feature_importance"].items())[:6]
-        if top_features:
-            feat_df = pd.DataFrame(top_features, columns=["Feature", "Contribution"])
-            fig_feat = px.bar(
-                feat_df,
-                x="Contribution",
-                y="Feature",
-                orientation="h",
-                color_discrete_sequence=["#e5e5e5"],
+    elif not st.session_state["prediction_completed"] and not predict_btn:
+        st.markdown(
+            f"""
+            <div style="background: #080808; border: 1px solid var(--border-color); border-left: 3px solid #f59e0b; border-radius: 6px; padding: 14px 18px; margin-top: 10px;">
+                <div style="font-weight: 600; font-size: 0.85rem; color: #f8fafc;">Ready for Prediction</div>
+                <div style="font-size: 0.78rem; color: #94a3b8; margin-top: 4px;">
+                    Dataset is processed and ready. Select your horizon (<b>T+{horizon_days}</b>) and model (<b>{model_choice}</b>), then click <b>"Generate Prediction"</b> to train models and forecast prices.
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    # Handle Predict Button Trigger
+    if predict_btn and st.session_state["processing_completed"]:
+        with st.spinner(f"Training {model_choice} on chronological features for {selected_stock}..."):
+            try:
+                pred_res = train_and_evaluate_model(
+                    ohlcv_df=st.session_state["processed_df"],
+                    model_name=model_choice,
+                    horizon=horizon_days,
+                    test_size=0.20,
+                )
+                st.session_state["prediction_results"] = pred_res
+                st.session_state["active_horizon"] = horizon_days
+                st.session_state["active_model"] = model_choice
+                st.session_state["prediction_completed"] = True
+                st.rerun()
+            except Exception as exc:
+                st.error(f"Prediction modeling error: {exc}")
+
+    # Render Prediction Results when completed
+    if st.session_state["prediction_completed"] and st.session_state["prediction_results"]:
+        pred_res = st.session_state["prediction_results"]
+        forecast_price = pred_res["next_day_forecast"]
+        delta_val = pred_res["predicted_change"]
+        delta_pct = pred_res["predicted_change_pct"]
+        is_positive = delta_val >= 0
+
+        move_color = "#10b981" if is_positive else "#ef4444"
+        move_symbol = "+" if is_positive else ""
+        move_badge = "chip-green" if is_positive else "chip-red"
+
+        st.markdown(
+            f"""
+            <div class="forecast-panel" style="margin-top: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
+                    <div>
+                        <div style="font-size: 0.76rem; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px;">
+                            Model Forecast | {pred_res['engine_name']}
+                        </div>
+                        <div style="font-size: 2.6rem; font-weight: 700; color: #ffffff; font-family: 'JetBrains Mono', monospace; line-height: 1.1;">
+                            {currency_sym}{forecast_price:,.2f}
+                        </div>
+                        <div style="margin-top: 10px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                            <span class="{move_badge}" style="font-size: 0.95rem; padding: 4px 10px;">
+                                Expected Move: {move_symbol}{currency_sym}{abs(delta_val):.2f} ({move_symbol}{delta_pct:.2f}%)
+                            </span>
+                            <span style="font-size: 0.8rem; color: #94a3b8;">
+                                Origin: <b>{pred_res['forecast_origin_date']}</b> → Target Session: <b style="color: #ffffff;">{pred_res['target_trading_date']} (T+{horizon_days})</b>
+                            </span>
+                        </div>
+                    </div>
+                    <div style="background: #090d14; border: 1px solid var(--border-color); border-radius: 6px; padding: 14px 18px; min-width: 260px;">
+                        <div style="font-size: 0.72rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 8px;">
+                            Out-of-Sample Test Reliability
+                        </div>
+                        <div style="font-size: 0.82rem; color: #cbd5e1; display: flex; justify-content: space-between; margin-bottom: 4px;">
+                            <span>Test MAE:</span> <b class="mono-num">{currency_sym}{pred_res['mae']:.2f}</b>
+                        </div>
+                        <div style="font-size: 0.82rem; color: #cbd5e1; display: flex; justify-content: space-between; margin-bottom: 4px;">
+                            <span>Test RMSE:</span> <b class="mono-num">{currency_sym}{pred_res['rmse']:.2f}</b>
+                        </div>
+                        <div style="font-size: 0.82rem; color: #cbd5e1; display: flex; justify-content: space-between; margin-bottom: 4px;">
+                            <span>Model Dir. Accuracy:</span> <b class="mono-num" style="color: {'#10b981' if pred_res['directional_accuracy_pct'] >= 50 else '#ef4444'};">{pred_res['directional_accuracy_pct']:.1f}%</b>
+                        </div>
+                        <div style="font-size: 0.82rem; color: #cbd5e1; display: flex; justify-content: space-between;">
+                            <span>Baseline Dir. Accuracy:</span> <b class="mono-num">{pred_res['baseline_directional_acc']:.1f}%</b>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        # Actual vs Predicted Historical Performance Chart
+        st.markdown('<p class="section-label">Actual vs. Predicted Historical Performance (Test Window)</p>', unsafe_allow_html=True)
+        viz_df = pred_res["viz_df"]
+        fig_pred = go.Figure()
+        fig_pred.add_trace(
+            go.Scatter(
+                x=viz_df.index,
+                y=viz_df["Actual_Close"],
+                name="Actual Close",
+                mode="lines+markers",
+                line=dict(color="#ffffff", width=2),
+                marker=dict(size=4),
             )
-            fig_feat.update_layout(
-                **_plotly_layout("Top Contributing Features", height=230, margin=dict(l=70, r=20, t=35, b=25))
+        )
+        fig_pred.add_trace(
+            go.Scatter(
+                x=viz_df.index,
+                y=viz_df["Predicted_Close"],
+                name=f"Predicted ({pred_res['engine_name']})",
+                mode="lines",
+                line=dict(color="#f59e0b", width=1.8, dash="dash"),
             )
-            st.plotly_chart(fig_feat, use_container_width=True)
+        )
+        fig_pred.add_trace(
+            go.Scatter(
+                x=viz_df.index,
+                y=viz_df["Naive_Baseline"],
+                name="Naive Baseline (Close[t-1])",
+                mode="lines",
+                line=dict(color="#64748b", width=1.5, dash="dot"),
+            )
+        )
+        fig_pred.update_layout(
+            **_plotly_layout(
+                f"{selected_stock}: Ground Truth vs. {pred_res['engine_name']} Forecasts ({pred_res['test_period']})",
+                height=380,
+            ),
+            xaxis_title="Date",
+            yaxis_title=f"Price ({currency_sym})",
+        )
+        st.plotly_chart(fig_pred, use_container_width=True)
+
+        # Prediction Interpretation & Feature Importance
+        st.markdown('<p class="section-label">Prediction Summary & Feature Contribution</p>', unsafe_allow_html=True)
+        sum_col1, sum_col2 = st.columns([1.6, 1.4])
+        with sum_col1:
+            st.markdown(
+                f"""
+                <div class="metric-card">
+                    <div style="font-weight: 600; font-size: 0.9rem; color: #f8fafc; margin-bottom: 6px;">
+                        Model Interpretation & Methodology
+                    </div>
+                    <p style="font-size: 0.82rem; color: #94a3b8; line-height: 1.5; margin-bottom: 8px;">
+                        The <b>{pred_res['engine_name']}</b> projects an estimated price of 
+                        <b style="color: #ffffff;">{currency_sym}{forecast_price:,.2f}</b> over a horizon of <b>{horizon_days} trading session{'s' if horizon_days > 1 else ''}</b>, 
+                        representing an expected move of <b style="color: {move_color};">{move_symbol}{delta_pct:.2f}%</b> from the latest close of {currency_sym}{pred_res['current_price']:,.2f}.
+                    </p>
+                    <p style="font-size: 0.82rem; color: #94a3b8; line-height: 1.5; margin-bottom: 8px;">
+                        • <b>Origin to Target:</b> Forecast origin <b>{pred_res['forecast_origin_date']}</b> targeting trading session <b>{pred_res['target_trading_date']}</b>.<br>
+                        • <b>Data Partition:</b> Evaluated across {pred_res['test_samples']} out-of-sample trading days ({pred_res['test_period']}) with strict chronological ordering.<br>
+                        • <b>Error Tolerance:</b> Test MAE is ±{currency_sym}{pred_res['mae']:.2f} (RMSE: ±{currency_sym}{pred_res['rmse']:.2f}).<br>
+                        • <b>Baseline Comparison:</b> Naive Persistence baseline achieved an MAE of ±{currency_sym}{pred_res['baseline_mae']:.2f}.
+                    </p>
+                    <div style="font-size: 0.74rem; color: #64748b;">
+                        Note: Forecasts are quantitative statistical estimates for academic demonstration in Big Data analytics. Financial markets involve non-stationarity and inherent capital risk; this is not financial investment advice.
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        with sum_col2:
+            top_features = list(pred_res["feature_importance"].items())[:6]
+            if top_features:
+                feat_df = pd.DataFrame(top_features, columns=["Feature", "Contribution"])
+                fig_feat = px.bar(
+                    feat_df,
+                    x="Contribution",
+                    y="Feature",
+                    orientation="h",
+                    color_discrete_sequence=["#e5e5e5"],
+                )
+                fig_feat.update_layout(
+                    **_plotly_layout("Top Contributing Features", height=230, margin=dict(l=70, r=20, t=35, b=25))
+                )
+                st.plotly_chart(fig_feat, use_container_width=True)
 
 
 # ══════════════════════════════════════════════════════════════
@@ -810,134 +1116,142 @@ elif page == "Data Processing":
     with run_col1:
         st.write("Execute distributed processing job through Apache PySpark DataFrame APIs:")
     with run_col2:
-        if st.button("Run PySpark Pipeline", use_container_width=True):
+        if st.button("Run PySpark Pipeline", use_container_width=True, key="p2_run_spark_btn"):
             with st.spinner("Executing PySpark distributed transformations..."):
-                st.session_state[cache_key] = process_stock_data_spark(
+                spark_res = process_stock_data_spark(
                     df_flat,
                     ticker=selected_stock,
                     output_dir=proc_dir,
                 )
+                st.session_state["spark_results"] = spark_res
+                st.session_state["processed_df"] = spark_res.get("processed_df", df_flat)
+                st.session_state["processing_completed"] = True
+                st.session_state["prediction_completed"] = False
+                st.session_state["prediction_results"] = None
             st.success("PySpark execution completed successfully.")
+            st.rerun()
 
-    spark_res = st.session_state[cache_key]
+    if not st.session_state["processing_completed"]:
+        st.info("Dataset has not yet been processed with PySpark. Click 'Run PySpark Pipeline' above to execute ETL.")
+    else:
+        spark_res = st.session_state["spark_results"]
 
-    # Processing Metrics
-    st.markdown('<p class="section-label">Pipeline Execution Metrics</p>', unsafe_allow_html=True)
-    m_col1, m_col2, m_col3, m_col4 = st.columns(4)
-    with m_col1:
+        # Processing Metrics
+        st.markdown('<p class="section-label">Pipeline Execution Metrics</p>', unsafe_allow_html=True)
+        m_col1, m_col2, m_col3, m_col4 = st.columns(4)
+        with m_col1:
+            st.markdown(
+                f"""
+                <div class="metric-card">
+                    <div class="metric-title">Input / Output Records</div>
+                    <div class="metric-value">{spark_res['raw_records']} / {spark_res['processed_records']}</div>
+                    <div class="metric-sub">Cleaned records: <b>{spark_res['processed_records']}</b></div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        with m_col2:
+            st.markdown(
+                f"""
+                <div class="metric-card">
+                    <div class="metric-title">Duplicates & Missing Handled</div>
+                    <div class="metric-value">{spark_res['duplicates_removed']} / {spark_res['missing_values_handled']}</div>
+                    <div class="metric-sub">Processed with Zero Lookahead</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        with m_col3:
+            st.markdown(
+                f"""
+                <div class="metric-card">
+                    <div class="metric-title">Outliers Flagged (IQR)</div>
+                    <div class="metric-value">{spark_res['outliers_detected']}</div>
+                    <div class="metric-sub">Marked in <code>Outlier_Flag</code></div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        with m_col4:
+            st.markdown(
+                f"""
+                <div class="metric-card">
+                    <div class="metric-title">Execution Duration</div>
+                    <div class="metric-value">{spark_res['duration_seconds']}s</div>
+                    <div class="metric-sub">Partitions: <b>{spark_res['partitions']}</b></div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        # Engine Status Row
+        st.markdown("<br>", unsafe_allow_html=True)
+        eng_name = spark_res["engine"]
         st.markdown(
             f"""
-            <div class="metric-card">
-                <div class="metric-title">Input / Output Records</div>
-                <div class="metric-value">{spark_res['raw_records']} / {spark_res['processed_records']}</div>
-                <div class="metric-sub">Cleaned records: <b>{spark_res['processed_records']}</b></div>
+            <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px 18px; display: flex; align-items: center; justify-content: space-between;">
+                <div>
+                    <span style="font-size: 0.8rem; color: #94a3b8; font-weight: 600;">Processing Engine:</span>
+                    <span class="status-tag" style="margin-left: 8px;">{eng_name}</span>
+                </div>
+                <div style="font-size: 0.78rem; color: #94a3b8;">
+                    Storage Sink: <code style="color: #e5e5e5;">{spark_res['output_parquet']}</code>
+                </div>
             </div>
             """,
             unsafe_allow_html=True,
         )
-    with m_col2:
+
+        # Outlier Treatment Explanation Box
+        st.markdown("<br>", unsafe_allow_html=True)
         st.markdown(
             f"""
-            <div class="metric-card">
-                <div class="metric-title">Duplicates & Missing Handled</div>
-                <div class="metric-value">{spark_res['duplicates_removed']} / {spark_res['missing_values_handled']}</div>
-                <div class="metric-sub">Processed with Zero Lookahead</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-    with m_col3:
-        st.markdown(
-            f"""
-            <div class="metric-card">
-                <div class="metric-title">Outliers Flagged (IQR)</div>
-                <div class="metric-value">{spark_res['outliers_detected']}</div>
-                <div class="metric-sub">Marked in <code>Outlier_Flag</code></div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-    with m_col4:
-        st.markdown(
-            f"""
-            <div class="metric-card">
-                <div class="metric-title">Execution Duration</div>
-                <div class="metric-value">{spark_res['duration_seconds']}s</div>
-                <div class="metric-sub">Partitions: <b>{spark_res['partitions']}</b></div>
+            <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; padding: 14px 18px;">
+                <div style="font-size: 0.82rem; font-weight: 600; color: #cbd5e1; margin-bottom: 4px;">
+                    Outlier Handling Methodology & Market Event Preservation
+                </div>
+                <div style="font-size: 0.8rem; color: #94a3b8; line-height: 1.5;">
+                    {spark_res.get('outlier_treatment', 'Outlier detection via Interquartile Range (IQR). Genuine extreme market events are preserved.')}
+                    Extreme price movements are identified via the IQR threshold <code>[Q1 - 1.5*IQR, Q3 + 1.5*IQR]</code> and annotated in the <code>Outlier_Flag</code> column without deleting historical rows. Preserving genuine flash crashes and gap openings ensures realistic model training.
+                </div>
             </div>
             """,
             unsafe_allow_html=True,
         )
 
-    # Engine Status Row
-    st.markdown("<br>", unsafe_allow_html=True)
-    eng_name = spark_res["engine"]
-    st.markdown(
-        f"""
-        <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px 18px; display: flex; align-items: center; justify-content: space-between;">
-            <div>
-                <span style="font-size: 0.8rem; color: #94a3b8; font-weight: 600;">Processing Engine:</span>
-                <span class="status-tag" style="margin-left: 8px;">{eng_name}</span>
+        # Generated Features Specification
+        st.markdown('<p class="section-label">Generated Features</p>', unsafe_allow_html=True)
+        features_list = spark_res.get("generated_features", [])
+        feat_chips = " ".join([f'<span class="status-tag" style="margin: 3px 4px;">{f}</span>' for f in features_list])
+        st.markdown(
+            f"""
+            <div class="metric-card" style="margin-bottom: 18px;">
+                <div style="font-size: 0.8rem; font-weight: 600; color: #f8fafc; margin-bottom: 8px;">
+                    Features Produced for Machine Learning ({len(features_list)} Features):
+                </div>
+                <div>{feat_chips}</div>
+                <div style="font-size: 0.74rem; color: #64748b; margin-top: 10px;">
+                    Calculated using distributed PySpark Window functions over chronological partitions: <code>Window.partitionBy(F.lit("GLOBAL")).orderBy("Date")</code>.
+                </div>
             </div>
-            <div style="font-size: 0.78rem; color: #94a3b8;">
-                Storage Sink: <code style="color: #e5e5e5;">{spark_res['output_parquet']}</code>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+            """,
+            unsafe_allow_html=True,
+        )
 
-    # Outlier Treatment Explanation Box
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown(
-        f"""
-        <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; padding: 14px 18px;">
-            <div style="font-size: 0.82rem; font-weight: 600; color: #cbd5e1; margin-bottom: 4px;">
-                Outlier Handling Methodology & Market Event Preservation
-            </div>
-            <div style="font-size: 0.8rem; color: #94a3b8; line-height: 1.5;">
-                {spark_res.get('outlier_treatment', 'Outlier detection via Interquartile Range (IQR). Genuine extreme market events are preserved.')}
-                Extreme price movements are identified via the IQR threshold <code>[Q1 - 1.5*IQR, Q3 + 1.5*IQR]</code> and annotated in the <code>Outlier_Flag</code> column without deleting historical rows. Preserving genuine flash crashes and gap openings ensures realistic model training.
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+        # Before and After Data Previews
+        st.markdown('<p class="section-label">Before & After Data Previews</p>', unsafe_allow_html=True)
+        prev_tab1, prev_tab2 = st.tabs(["Processed Parquet Dataset (Features Included)", "Raw Input Ingestion Sample"])
 
-    # Generated Features Specification
-    st.markdown('<p class="section-label">Generated Features</p>', unsafe_allow_html=True)
+        with prev_tab1:
+            st.write("Cleaned and transformed dataset loaded from Parquet sink:")
+            if "preview_df" in spark_res and isinstance(spark_res["preview_df"], pd.DataFrame):
+                st.dataframe(spark_res["preview_df"], use_container_width=True)
+            else:
+                st.dataframe(st.session_state["processed_df"].tail(10), use_container_width=True)
 
-    features_list = spark_res.get("generated_features", [])
-    feat_chips = " ".join([f'<span class="status-tag" style="margin: 3px 4px;">{f}</span>' for f in features_list])
-    st.markdown(
-        f"""
-        <div class="metric-card" style="margin-bottom: 18px;">
-            <div style="font-size: 0.8rem; font-weight: 600; color: #f8fafc; margin-bottom: 8px;">
-                Features Produced for Machine Learning ({len(features_list)} Features):
-            </div>
-            <div>{feat_chips}</div>
-            <div style="font-size: 0.74rem; color: #64748b; margin-top: 10px;">
-                Calculated using distributed PySpark Window functions over chronological partitions: <code>Window.partitionBy(F.lit("GLOBAL")).orderBy("Date")</code>.
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    # Before and After Data Previews
-    st.markdown('<p class="section-label">Before & After Data Previews</p>', unsafe_allow_html=True)
-    prev_tab1, prev_tab2 = st.tabs(["Processed Parquet Dataset (Features Included)", "Raw Input Ingestion Sample"])
-
-    with prev_tab1:
-        st.write("Cleaned and transformed dataset loaded from Parquet sink:")
-        if "preview_df" in spark_res and isinstance(spark_res["preview_df"], pd.DataFrame):
-            st.dataframe(spark_res["preview_df"], use_container_width=True)
-        else:
-            st.dataframe(processed_df.tail(10), use_container_width=True)
-
-    with prev_tab2:
-        st.write("Original raw OHLCV dataset as ingested:")
-        st.dataframe(df_flat.head(10), use_container_width=True)
+        with prev_tab2:
+            st.write("Original raw OHLCV dataset as ingested:")
+            st.dataframe(df_flat.head(10), use_container_width=True)
 
 
 # ══════════════════════════════════════════════════════════════
@@ -947,6 +1261,10 @@ elif page == "Model Evaluation":
     st.markdown(f"### Model Evaluation & Baseline Benchmark: {selected_stock}")
     st.caption("Out-of-Sample Chronological Validation & Baseline Comparison")
     st.markdown("---")
+
+    if not st.session_state["processing_completed"]:
+        st.warning("Data processing has not yet been executed. Please process the dataset on the Prediction Dashboard or Data Processing page before running model evaluation.")
+        st.stop()
 
     eval_col1, eval_col2 = st.columns([2.0, 2.0])
     with eval_col1:
@@ -971,7 +1289,7 @@ elif page == "Model Evaluation":
         with st.spinner(f"Evaluating models for {selected_stock}..."):
             try:
                 st.session_state[eval_cache_key] = evaluate_models_suite(
-                    ohlcv_df=processed_df,
+                    ohlcv_df=st.session_state["processed_df"],
                     horizon=eval_horizon,
                     test_size=0.20,
                 )
@@ -980,14 +1298,13 @@ elif page == "Model Evaluation":
                 st.stop()
 
     suite = st.session_state[eval_cache_key]
-
     comp_df = suite["comparison_df"]
     best_name = suite["best_model_name"]
     best_res = suite["best_model_res"]
     beats_baseline = suite["beats_baseline"]
     imp_pct = suite["improvement_pct"]
 
-    # TOP PERFORMER CARD
+    # Top Performer Card
     best_chip = "chip-green" if beats_baseline else "chip-neutral"
     status_text = f"Beats Naive Baseline by {imp_pct}% MAE reduction" if beats_baseline else "Evaluated against Random Walk Persistence Baseline (EMH active)"
 
@@ -1014,7 +1331,7 @@ elif page == "Model Evaluation":
         unsafe_allow_html=True,
     )
 
-    # Comparative Model Scorecard Table
+    # Comparative Scorecard Table
     st.markdown('<p class="section-label">Model Comparison Scorecard</p>', unsafe_allow_html=True)
     st.dataframe(comp_df, use_container_width=True)
 
@@ -1145,6 +1462,10 @@ elif page == "Project Information":
   `-- File Upload Interface (User-provided CSV/Parquet)
        |
        v
+[User-Controlled Preview: dashboard/app.py]
+  `-- Raw Unprocessed Table Preview, Column Dtypes, Date Range, CSV Download
+       |
+       v (User Clicks "Process Data")
 [Distributed Processing Engine: spark_engine.py]
   |-- Engine: Apache PySpark 3.5 (local[2], Catalyst Optimizer) with Pandas Fallback
   |-- Data Cleaning: Deduplication, Forward-fill Imputation (Strictly NO backward fill)
@@ -1156,7 +1477,7 @@ elif page == "Project Information":
 [Columnar Storage Sink: Parquet Format (data/processed/)]
   `-- Direct PySpark Parquet Writer (DataFrame.write.mode("overwrite").parquet(...))
        |
-       v (Architectural Boundary: toPandas() driver projection)
+       v (User Clicks "Generate Prediction")
 [Machine Learning Engine: ml_predictor.py]
   |-- Target Alignment: T+h trading sessions (excludes calendar non-trading sessions)
   |-- Chronological Partitioning: 80% Train / 20% Test (Strictly NO random shuffling)
@@ -1166,9 +1487,9 @@ elif page == "Project Information":
        |
        v
 [User Interface: dashboard/app.py]
-  |-- Page 1: Prediction Dashboard (Forecasts, Expected Moves, Test Overlays)
-  |-- Page 2: Data Processing (PySpark Execution Metrics, Parquet Sink, Before/After Previews)
-  |-- Page 3: Model Evaluation (Multi-Model Comparison Scorecard, Baseline Validation)
+  |-- Page 1: Prediction Dashboard (User-Controlled 4-Stage Workflow)
+  |-- Page 2: Data Processing (PySpark Execution Telemetry & Parquet Sink)
+  |-- Page 3: Model Evaluation (Multi-Model Comparison Scorecard & Baseline Validation)
   `-- Page 4: Project Information (Academic Dossier, 5Vs, Spark & ML Roles)
         </div>
         """,

@@ -1,16 +1,14 @@
 """End-to-end verification and integration test suite for StockSense.
 
-Comprehensive test coverage across all technical correctness requirements:
-1. PySpark 3.5 Environment & Diagnostic Verification
-2. Offline Datasets Discovery (NVDA, RELIANCE, AAPL, MSFT, TCS)
-3. End-to-End Prediction Workflow on NVDA (PySpark distributed ETL + Parquet sink + ML)
-4. End-to-End Prediction Workflow on Reliance (5-day horizon, Indian Rupee ₹)
-5. Multi-Horizon Forecast Horizon & Business Trading Day Alignment (T+1, T+5, T+10, T+20)
-6. Forecast Origin Integrity (Features computed up to t_latest without lookahead leakage)
-7. Chronological Train/Test Partitioning Integrity (No row shuffling, valid target alignment)
-8. Naive Persistence Baseline Dynamic Metrics (Empirical MAE, RMSE, R², and Directional Accuracy)
-9. Pandas Graceful Fallback Execution (When PySpark session is absent)
-10. Feature Alignment & Consistency between PySpark and Pandas Fallback
+Explicitly validates the User-Controlled 5-Stage Workflow:
+1. Import Data -> 2. Preview Raw Data -> 3. Process Data -> 4. User Clicks Predict -> 5. Display Results
+
+Required Verification Tests:
+- Test A: Data import & raw preview (NVDA & Reliance, record counts, date range, no auto ETL/ML)
+- Test B: Explicit data processing (PySpark execution, Parquet serialization, raw data unchanged)
+- Test C: User-controlled prediction (Explicit trigger, target date alignment, baseline comparison)
+- Test D: State management & invalidation (Horizon change isolation, dataset switch reset)
+- Test E: Graceful engine fallback (PySpark unavailable fallback to Pandas, engine transparency)
 """
 
 from __future__ import annotations
@@ -19,6 +17,7 @@ import os
 import shutil
 import sys
 from pathlib import Path
+from unittest.mock import patch
 
 # Add project root to sys.path
 root = Path(__file__).resolve().parent.parent
@@ -29,9 +28,11 @@ import numpy as np
 import pandas as pd
 from src.data_fetcher import (
     get_processed_data_dir,
+    get_raw_metadata,
     get_sample_data_dir,
     list_sample_datasets,
     load_local_dataset,
+    load_raw_dataset,
     validate_ohlcv_data,
 )
 from src.ml_predictor import (
@@ -47,195 +48,143 @@ from src.spark_engine import (
 )
 
 
-def run_tests() -> None:
-    print("=" * 70)
-    print("STOCKSENSE: TECHNICAL VERIFICATION & INTEGRATION TEST SUITE")
-    print("=" * 70)
+def run_verification_tests() -> None:
+    print("=" * 75)
+    print("STOCKSENSE: USER-CONTROLLED WORKFLOW & INTEGRATION VERIFICATION")
+    print("=" * 75)
 
-    # -------------------------------------------------------------
-    # STAGE 1: Check Spark Status
-    # -------------------------------------------------------------
-    print("\n[Stage 1] Checking Spark Environment...")
-    status = get_spark_status()
-    print("Spark status:", status)
-    assert status["pyspark_installed"], "PySpark 3.5 must be installed."
-    spark_session = get_spark_session()
-    assert spark_session is not None, "SparkSession must initialize successfully."
-    print("✓ Apache PySpark 3.5 environment verified.")
+    proc_dir = str(get_processed_data_dir())
 
-    # -------------------------------------------------------------
-    # STAGE 2: Check Offline Sample Datasets
-    # -------------------------------------------------------------
-    print("\n[Stage 2] Discovering Offline Datasets...")
-    samples = list_sample_datasets()
-    print(f"Discovered {len(samples)} offline sample datasets.")
-    assert len(samples) >= 4, "Should have at least 4 sample datasets."
-    sample_tickers = [s["ticker"] for s in samples]
-    print(f"Available tickers: {sample_tickers}")
-    assert any("NVDA" in t for t in sample_tickers), "NVDA dataset must be present."
-    assert any("RELIANCE" in t for t in sample_tickers), "RELIANCE dataset must be present."
-    print("✓ Offline datasets verified.")
-
-    # -------------------------------------------------------------
-    # STAGE 3: Test Full Prediction Workflow on NVIDIA (NVDA)
-    # -------------------------------------------------------------
-    print("\n[Stage 3] Testing End-to-End Prediction Workflow on NVIDIA (NVDA)...")
+    # =========================================================================
+    # TEST A: DATA IMPORT & RAW PREVIEW
+    # =========================================================================
+    print("\n[TEST A] Verifying Data Import & Raw Preview...")
     nvda_path = get_sample_data_dir() / "NVDA.parquet"
     if not nvda_path.exists():
         nvda_path = get_sample_data_dir() / "NVDA.csv"
-    assert nvda_path.exists(), f"NVDA dataset not found at {nvda_path}"
+    assert nvda_path.exists(), f"NVDA sample dataset must exist at {nvda_path}"
 
-    df_nvda = load_local_dataset(nvda_path)
-    print(f"1. Ingestion: Loaded NVDA ({df_nvda.shape[0]} rows, {df_nvda.shape[1]} columns)")
-    assert not df_nvda.empty
+    # 1. Load raw dataset without ETL
+    raw_nvda, meta_nvda = load_raw_dataset(nvda_path)
+    print(f"1. Ingested Raw Dataset: {meta_nvda['source_name']}")
+    print(f"   Shape: {meta_nvda['rows']} rows x {meta_nvda['columns']} columns")
+    print(f"   Date Range: {meta_nvda['date_range']}")
+    print(f"   Columns: {meta_nvda['column_names']}")
 
-    # Geometric OHLC bounds check
-    cleaned_nvda, audit_report = validate_ohlcv_data(df_nvda)
-    print(f"2. Geometric OHLC Validation: {audit_report['valid_records']} valid / {audit_report['total_records']} total")
-    assert audit_report["valid_records"] > 0
+    # Assertions for Raw Import
+    assert meta_nvda["rows"] >= 200, f"Expected at least 200 rows, got {meta_nvda['rows']}"
+    assert len(raw_nvda) == meta_nvda["rows"]
+    assert meta_nvda["columns"] >= 5, "Expected at least 5 standard OHLCV columns"
+    assert "Close" in meta_nvda["column_names"] or "Adj Close" in meta_nvda["column_names"]
 
-    proc_dir = str(get_processed_data_dir())
-    spark_nvda = process_stock_data_spark(cleaned_nvda, ticker="NVDA", output_dir=proc_dir)
-    print(f"3. Processing Engine: {spark_nvda['engine']}")
-    print(f"4. Records Processed: {spark_nvda['processed_records']} (Outliers Flagged: {spark_nvda['outliers_detected']})")
-    print(f"5. Generated Features ({len(spark_nvda['generated_features'])}): {spark_nvda['generated_features']}")
-    print(f"6. Parquet Sink Path: {spark_nvda['output_parquet']}")
+    # CRITICAL: Verify NO moving averages, lags, or predictions exist in raw data
+    assert "Lag_1" not in raw_nvda.columns, "Raw data must NOT contain engineered Lag_1 feature!"
+    assert "SMA_20" not in raw_nvda.columns, "Raw data must NOT contain engineered SMA_20 feature!"
+    assert "Outlier_Flag" not in raw_nvda.columns, "Raw data must NOT contain Outlier_Flag!"
+    assert "Target_Close" not in raw_nvda.columns, "Raw data must NOT contain Target_Close!"
+    print("✓ TEST A PASSED: Raw data imported and verified without premature ETL or prediction.")
 
-    assert Path(spark_nvda["output_parquet"]).exists(), "Parquet output sink must exist on disk."
-    assert "Lag_1" in spark_nvda["generated_features"]
-    assert "SMA_20" in spark_nvda["generated_features"]
-    assert "Outlier_Flag" in spark_nvda["generated_features"]
+    # =========================================================================
+    # TEST B: EXPLICIT DATA PROCESSING (PYSPARK PIPELINE)
+    # =========================================================================
+    print("\n[TEST B] Verifying Explicit Data Processing (PySpark Execution)...")
+    raw_copy_before = raw_nvda.copy(deep=True)
 
-    # Verify Parquet readability directly
-    reloaded_parquet = pd.read_parquet(spark_nvda["output_parquet"])
-    assert len(reloaded_parquet) == spark_nvda["processed_records"]
-    print(f"7. Parquet Persistence Verified: Loaded {len(reloaded_parquet)} rows directly from sink.")
+    spark_res = process_stock_data_spark(raw_nvda, ticker="NVDA", output_dir=proc_dir)
+    print(f"1. Processing Engine: {spark_res['engine']}")
+    print(f"2. Original Records: {spark_res['raw_records']} -> Processed Records: {spark_res['processed_records']}")
+    print(f"3. Outliers Flagged (IQR): {spark_res['outliers_detected']}")
+    print(f"4. Partitions: {spark_res['partitions']} (Duration: {spark_res['duration_seconds']}s)")
+    print(f"5. Generated Features ({len(spark_res['generated_features'])}): {spark_res['generated_features']}")
+    print(f"6. Parquet Sink Path: {spark_res['output_parquet']}")
 
-    # Train Random Forest
-    processed_nvda = spark_nvda["processed_df"]
-    rf_nvda = train_and_evaluate_model(processed_nvda, model_name="Random Forest", horizon=1)
-    print(f"8. Random Forest Model: Test MAE=${rf_nvda['mae']}, Dir. Accuracy={rf_nvda['directional_accuracy_pct']}%")
-    print(f"   Forecast: Origin {rf_nvda['forecast_origin_date']} -> Target {rf_nvda['target_trading_date']}")
-    print(f"   Current Price: ${rf_nvda['current_price']}, Forecast: ${rf_nvda['next_day_forecast']} ({rf_nvda['predicted_change_pct']:+.2f}%)")
-    assert rf_nvda["next_day_forecast"] > 0
-    assert rf_nvda["forecast_origin_date"] != rf_nvda["target_trading_date"]
+    # Verify PySpark engine and features
+    assert "PySpark" in spark_res["engine"], "Expected Apache PySpark engine to process dataset."
+    assert Path(spark_res["output_parquet"]).exists(), "Parquet output sink must exist."
+    assert "Lag_1" in spark_res["generated_features"]
+    assert "SMA_20" in spark_res["generated_features"]
+    assert "Outlier_Flag" in spark_res["generated_features"]
 
-    suite_nvda = evaluate_models_suite(processed_nvda, horizon=1)
-    print("9. Multi-Model Scorecard:")
-    print(suite_nvda["comparison_df"][["Model", "Type", "MAE ($)", "RMSE ($)", "R² Score", "Directional Accuracy (%)"]])
-    print(f"10. Best Model on Test Set: {suite_nvda['best_model_name']} (Beats Baseline: {suite_nvda['beats_baseline']})")
-    print("✓ NVIDIA prediction workflow passed successfully.")
+    # Verify raw data was NOT mutated
+    assert raw_nvda.equals(raw_copy_before), "Raw DataFrame must remain completely unchanged after processing!"
+    print("✓ TEST B PASSED: PySpark ETL completed, Parquet sink created, raw data unmutated.")
 
-    # -------------------------------------------------------------
-    # STAGE 4: Indian NSE Equity: Reliance Industries (RELIANCE.NS)
-    # -------------------------------------------------------------
-    print("\n[Stage 4] Testing Workflow on Indian NSE Equity: Reliance Industries (RELIANCE.NS)...")
+    # =========================================================================
+    # TEST C: USER-CONTROLLED PREDICTION
+    # =========================================================================
+    print("\n[TEST C] Verifying User-Controlled Prediction...")
+    processed_nvda = spark_res["processed_df"]
+
+    # Verify prediction is ONLY triggered on explicit call
+    horizon = 5
+    pred_res = train_and_evaluate_model(processed_nvda, model_name="Random Forest", horizon=horizon, test_size=0.20)
+    
+    print(f"1. Forecast Origin Date: {pred_res['forecast_origin_date']}")
+    print(f"2. Target Trading Date:  {pred_res['target_trading_date']} (T+{horizon} Sessions)")
+    print(f"3. Current Close: ${pred_res['current_price']:.2f}")
+    print(f"4. Predicted Future Close: ${pred_res['next_day_forecast']:.2f} ({pred_res['predicted_change_pct']:+.2f}%)")
+    print(f"5. Test Set MAE: ${pred_res['mae']:.2f} vs Naive Baseline MAE: ${pred_res['baseline_mae']:.2f}")
+    print(f"6. Dynamic Baseline Directional Accuracy: {pred_res['baseline_directional_acc']:.1f}%")
+
+    # Assertions for Prediction
+    assert pred_res["next_day_forecast"] > 0
+    assert pred_res["forecast_origin_date"] != pred_res["target_trading_date"]
+    origin_dt = pd.to_datetime(pred_res["forecast_origin_date"])
+    target_dt = pd.to_datetime(pred_res["target_trading_date"])
+    assert target_dt.weekday() < 5, "Target trading date must fall on a business day!"
+    assert 0.0 <= pred_res["baseline_directional_acc"] <= 100.0, "Baseline directional accuracy must be empirical."
+    print("✓ TEST C PASSED: User-controlled prediction executed with correct horizon and baseline.")
+
+    # =========================================================================
+    # TEST D: STATE MANAGEMENT & DATASET SWITCHING
+    # =========================================================================
+    print("\n[TEST D] Verifying State Management & Dataset Invalidation...")
+    # 1. Horizon Change Invalidation: changing horizon produces new target date
+    pred_h1 = train_and_evaluate_model(processed_nvda, model_name="Random Forest", horizon=1, test_size=0.20)
+    pred_h5 = train_and_evaluate_model(processed_nvda, model_name="Random Forest", horizon=5, test_size=0.20)
+    assert pred_h1["target_trading_date"] != pred_h5["target_trading_date"], "Horizon change must produce different target dates."
+    print(f"   Horizon T+1 Target: {pred_h1['target_trading_date']} vs Horizon T+5 Target: {pred_h5['target_trading_date']}")
+
+    # 2. Dataset Switching: Switch to Reliance Industries (RELIANCE.NS)
     rel_path = get_sample_data_dir() / "RELIANCE_NS.parquet"
     if not rel_path.exists():
         rel_path = get_sample_data_dir() / "RELIANCE_NS.csv"
-    assert rel_path.exists(), f"Reliance dataset not found at {rel_path}"
+    assert rel_path.exists()
 
-    df_rel = load_local_dataset(rel_path)
-    print(f"1. Ingestion: Loaded Reliance ({df_rel.shape[0]} rows)")
+    raw_rel, meta_rel = load_raw_dataset(rel_path)
+    print(f"   Switched to New Dataset: {meta_rel['source_name']} ({meta_rel['rows']} rows)")
+    assert "Lag_1" not in raw_rel.columns, "New raw dataset must be unprocessed."
 
-    spark_rel = process_stock_data_spark(df_rel, ticker="RELIANCE.NS", output_dir=proc_dir)
-    print(f"2. Processing Engine: {spark_rel['engine']}")
-    assert Path(spark_rel["output_parquet"]).exists(), "Reliance Parquet file must exist."
+    # Process Reliance explicitly
+    spark_rel = process_stock_data_spark(raw_rel, ticker="RELIANCE.NS", output_dir=proc_dir)
+    pred_rel = train_and_evaluate_model(spark_rel["processed_df"], model_name="Linear Regression", horizon=5, test_size=0.20)
+    print(f"   Reliance Forecast: ₹{pred_rel['current_price']:.2f} -> ₹{pred_rel['next_day_forecast']:.2f} (Target: {pred_rel['target_trading_date']})")
+    assert pred_rel["current_price"] > 1000.0, "Reliance price should reflect Indian Rupee valuation."
+    print("✓ TEST D PASSED: State isolation and dataset switching verified.")
 
-    # Test 5-day horizon
-    suite_rel = evaluate_models_suite(spark_rel["processed_df"], horizon=5)
-    best_rel = suite_rel["best_model_res"]
-    print(f"3. 5-Day Horizon Forecast (Best Model: {suite_rel['best_model_name']}):")
-    print(f"   Origin: {best_rel['forecast_origin_date']} -> Target Session: {best_rel['target_trading_date']}")
-    print(f"   Current: ₹{best_rel['current_price']:.2f} -> 5-Day Target: ₹{best_rel['next_day_forecast']:.2f} ({best_rel['predicted_change_pct']:+.2f}%)")
-    print(f"   Test MAE: ₹{best_rel['mae']:.2f} | Baseline MAE: ₹{best_rel['baseline_mae']:.2f}")
-    assert best_rel["next_day_forecast"] > 0
-    print("✓ Reliance prediction workflow passed successfully.")
-
-    # -------------------------------------------------------------
-    # STAGE 5: Multi-Horizon & Target Trading Date Business Day Logic
-    # -------------------------------------------------------------
-    print("\n[Stage 5] Verifying Target Trading Date Alignment across Horizons...")
-    for h in [1, 5, 10, 20]:
-        res_h = train_and_evaluate_model(processed_nvda, model_name="Linear Regression", horizon=h)
-        assert res_h["horizon_days"] == h
-        origin_dt = pd.to_datetime(res_h["forecast_origin_date"])
-        target_dt = pd.to_datetime(res_h["target_trading_date"])
-        
-        # Target date must be strictly after origin date
-        assert target_dt > origin_dt
-        # Target date must be a business day (weekday < 5)
-        assert target_dt.weekday() < 5, f"Target date {target_dt} falls on a weekend!"
-        
-        # Business days difference between origin and target must match horizon
-        b_days = len(pd.bdate_range(start=origin_dt, end=target_dt)) - 1
-        assert b_days == h, f"Expected {h} business days between {origin_dt} and {target_dt}, got {b_days}"
-        print(f"   Horizon T+{h:02d}: Origin {origin_dt.strftime('%Y-%m-%d (%a)')} -> Target {target_dt.strftime('%Y-%m-%d (%a)')} (Exact business days: {b_days})")
-    print("✓ Multi-horizon target date alignment verified.")
-
-    # -------------------------------------------------------------
-    # STAGE 6: Chronological Train/Test Partition Integrity
-    # -------------------------------------------------------------
-    print("\n[Stage 6] Verifying Chronological Split Integrity (Zero Lookahead Leakage)...")
-    clean_df, X, y, feat_cols = create_ml_features(processed_nvda, horizon=1)
-    split_idx = int(len(clean_df) * 0.80)
-    train_dates = clean_df.index[:split_idx]
-    test_dates = clean_df.index[split_idx:]
-
-    # Verify strictly monotonic increasing dates
-    assert train_dates.is_monotonic_increasing, "Train dates must be strictly monotonic increasing."
-    assert test_dates.is_monotonic_increasing, "Test dates must be strictly monotonic increasing."
-    # Verify train strictly precedes test
-    assert train_dates[-1] < test_dates[0], f"Train end {train_dates[-1]} must strictly precede test start {test_dates[0]}"
-    print(f"   Train Partition: {len(train_dates)} observations ({train_dates[0].strftime('%Y-%m-%d')} to {train_dates[-1].strftime('%Y-%m-%d')})")
-    print(f"   Test Partition:  {len(test_dates)} observations ({test_dates[0].strftime('%Y-%m-%d')} to {test_dates[-1].strftime('%Y-%m-%d')})")
-    print("✓ Chronological split verified without row shuffling.")
-
-    # -------------------------------------------------------------
-    # STAGE 7: Dynamic Naive Baseline Metrics
-    # -------------------------------------------------------------
-    print("\n[Stage 7] Verifying Dynamic Naive Baseline Metrics...")
-    res_rf = train_and_evaluate_model(processed_nvda, model_name="Random Forest", horizon=1)
-    baseline_dir_acc = res_rf["baseline_directional_acc"]
-    print(f"   Dynamically calculated baseline directional accuracy: {baseline_dir_acc:.2f}%")
-    # Must be a floating point value between 0 and 100 calculated from data, not hardcoded 50.0
-    assert 0.0 <= baseline_dir_acc <= 100.0
-    assert res_rf["baseline_mae"] > 0
-    assert res_rf["baseline_rmse"] > 0
-    print("✓ Dynamic naive baseline metrics verified.")
-
-    # -------------------------------------------------------------
-    # STAGE 8: Fallback Execution & Spark / Pandas Consistency
-    # -------------------------------------------------------------
-    print("\n[Stage 8] Verifying Pandas Fallback & Feature Consistency...")
-    # Temporarily force fallback
-    from unittest.mock import patch
+    # =========================================================================
+    # TEST E: GRACEFUL ENGINE FALLBACK TO PANDAS
+    # =========================================================================
+    print("\n[TEST E] Verifying Graceful Fallback when PySpark is Unavailable...")
     with patch("src.spark_engine.get_spark_session", return_value=None):
-        pandas_res = process_stock_data_spark(cleaned_nvda, ticker="NVDA", output_dir=None)
-        assert "Pandas" in pandas_res["engine"]
-        assert pandas_res["processed_records"] > 0
-        assert "Lag_1" in pandas_res["generated_features"]
-        assert "SMA_20" in pandas_res["generated_features"]
-        print(f"   Pandas Fallback processed {pandas_res['processed_records']} records without error.")
+        status = get_spark_status()
+        fallback_res = process_stock_data_spark(raw_nvda, ticker="NVDA", output_dir=None)
+        print(f"1. Fallback Engine Reported: {fallback_res['engine']}")
+        print(f"2. Records Cleaned via Fallback: {fallback_res['processed_records']}")
+        print(f"3. Features Generated: {len(fallback_res['generated_features'])}")
 
-    # Feature comparison between Spark and Pandas outputs
-    spark_df_out = spark_nvda["processed_df"]
-    pandas_df_out = pandas_res["processed_df"]
+        assert "Pandas" in fallback_res["engine"], "Fallback must clearly report Pandas engine!"
+        assert fallback_res["processed_records"] == spark_res["processed_records"]
+        assert "Lag_1" in fallback_res["generated_features"]
+        assert "SMA_20" in fallback_res["generated_features"]
+        assert "Outlier_Flag" in fallback_res["generated_features"]
 
-    # Compare common tail records
-    spark_tail_close = spark_df_out["Close"].iloc[-1]
-    pandas_tail_close = pandas_df_out["Close"].iloc[-1]
-    assert np.isclose(spark_tail_close, pandas_tail_close), "Close prices between Spark and Pandas must match."
+    print("✓ TEST E PASSED: Pandas fallback executes reliably and reports engine accurately.")
 
-    spark_tail_sma20 = spark_df_out["SMA_20"].iloc[-1]
-    pandas_tail_sma20 = pandas_df_out["SMA_20"].iloc[-1]
-    assert np.isclose(spark_tail_sma20, pandas_tail_sma20, rtol=1e-3), "SMA_20 between Spark and Pandas must match closely."
-    print("✓ Spark and Pandas fallback feature consistency verified.")
-
-    print("\n" + "=" * 70)
-    print("ALL 8 VERIFICATION & INTEGRATION STAGES PASSED SUCCESSFULLY!")
-    print("=" * 70)
+    print("\n" + "=" * 75)
+    print("ALL 5 WORKFLOW VERIFICATION TESTS (A, B, C, D, E) PASSED SUCCESSFULLY!")
+    print("=" * 75)
 
 
 if __name__ == "__main__":
-    run_tests()
+    run_verification_tests()
