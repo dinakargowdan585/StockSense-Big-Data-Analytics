@@ -1078,7 +1078,7 @@ elif page == "Model Evaluation":
     e_col1, e_col2 = st.columns(2)
     with e_col1:
         st.markdown(
-            f"""
+            """
             <div class="metric-card">
                 <div style="font-weight: 600; font-size: 0.88rem; color: #f8fafc; margin-bottom: 6px;">
                     Chronological Train/Test Partitioning
@@ -1092,13 +1092,13 @@ elif page == "Model Evaluation":
         )
     with e_col2:
         st.markdown(
-            f"""
+            """
             <div class="metric-card">
                 <div style="font-weight: 600; font-size: 0.88rem; color: #f8fafc; margin-bottom: 6px;">
                     Role of the Persistence Baseline
                 </div>
                 <p style="font-size: 0.8rem; color: #94a3b8; line-height: 1.5; margin: 0;">
-                    Under Eugene Fama's Efficient Market Hypothesis, asset prices closely resemble a martingale process ($Price_t \\approx Price_{t-1} + \\epsilon$). Comparing models against a <b>Naive Persistence Baseline</b> ensures that models are evaluated for genuine statistical edge rather than merely tracking autocorrelation.
+                    Under Eugene Fama's Efficient Market Hypothesis, asset prices closely resemble a martingale process: Price(t) ≈ Price(t-1) + error. Comparing models against a <b>Naive Persistence Baseline</b> ensures that models are evaluated for genuine statistical edge rather than merely tracking autocorrelation.
                 </p>
             </div>
             """,
