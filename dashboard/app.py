@@ -1,11 +1,11 @@
 """StockSense: Big Data Analytics in Stock Market Prediction.
 
-Focused Academic Stock Market Prediction System:
+Focused Stock Market Prediction Application:
 - Big Data processing with Apache PySpark 3.5 & Parquet Storage
-- Feature Engineering (PySpark Window Functions, Rolling Averages, Lags, Volatility)
-- Chronological ML Modeling (Linear Regression, Random Forest, Gradient Boosting)
+- Feature Engineering (PySpark Window Functions, Moving Averages, Lags, Volatility)
+- Chronological Machine Learning (Linear Regression, Random Forest, Gradient Boosting)
 - Out-of-sample Test Benchmarking against Naive Persistence Baseline
-- Executive Financial UI/UX Architecture
+- Professional Financial Analytics UI/UX Architecture
 """
 
 from __future__ import annotations
@@ -57,40 +57,37 @@ from src.ml_predictor import (
 from src.spark_engine import get_spark_status, process_stock_data_spark
 
 # ─────────────────────────────────────────────────────────────
-# PAGE CONFIGURATION
+# PAGE CONFIGURATION (CLEAN, NO EMOJIS)
 # ─────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="StockSense | Stock Market Prediction System",
-    page_icon="📈",
+    page_title="StockSense | Stock Market Prediction",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
 # ─────────────────────────────────────────────────────────────
-# CUSTOM FINANCIAL TERMINAL STYLING (CSS)
+# PROFESSIONAL FINANCIAL TERMINAL STYLING (CSS)
+# Clean, solid dark theme without AI gradients, glowing dots, or cartoons
 # ─────────────────────────────────────────────────────────────
 st.markdown(
     """
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
     :root {
-        --bg-main: #07090e;
-        --bg-panel: #0d121d;
-        --bg-card: #111726;
-        --bg-card-hover: #161e31;
-        --border-subtle: #1c2638;
-        --border-strong: #2a3852;
-        --text-primary: #f8fafc;
+        --bg-main: #090d14;
+        --bg-panel: #0d121c;
+        --bg-card: #111724;
+        --border-color: #1e293b;
+        --border-subtle: #162032;
+        --text-primary: #f1f5f9;
         --text-secondary: #94a3b8;
         --text-muted: #64748b;
-        --accent-cyan: #0ea5e9;
-        --accent-blue: #38bdf8;
-        --accent-indigo: #6366f1;
+        --accent-blue: #2563eb;
         --pos-green: #10b981;
-        --pos-green-bg: rgba(16, 185, 129, 0.12);
+        --pos-green-bg: rgba(16, 185, 129, 0.1);
         --neg-red: #ef4444;
-        --neg-red-bg: rgba(239, 68, 68, 0.12);
+        --neg-red-bg: rgba(239, 68, 68, 0.1);
     }
 
     /* Global Typography & Canvas */
@@ -99,118 +96,102 @@ st.markdown(
         background-color: var(--bg-main) !important;
         color: var(--text-primary) !important;
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
-        letter-spacing: -0.01em;
     }
 
-    /* Monospace for Numbers & Codes */
+    /* Monospace for Numbers */
     .mono-num {
         font-family: 'JetBrains Mono', monospace !important;
         font-feature-settings: "tnum" 1;
     }
 
-    /* Sidebar Refinement */
+    /* Sidebar Clean Styling */
     [data-testid="stSidebar"] {
         background-color: var(--bg-panel) !important;
-        border-right: 1px solid var(--border-subtle) !important;
-        box-shadow: 4px 0 24px rgba(0, 0, 0, 0.4);
+        border-right: 1px solid var(--border-color) !important;
     }
     [data-testid="stSidebar"] * {
         color: #cbd5e1 !important;
     }
 
-    /* Top Executive Header Bar */
-    .terminal-nav-header {
+    /* Clean Financial Header */
+    .header-bar {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        background: #0b1019;
-        border: 1px solid var(--border-subtle);
-        border-radius: 8px;
-        padding: 12px 20px;
+        background: var(--bg-panel);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        padding: 14px 20px;
         margin-bottom: 20px;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
     }
-    .terminal-logo-box {
-        display: flex;
-        align-items: center;
-        gap: 12px;
+    .header-title {
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: #f8fafc;
+        letter-spacing: -0.01em;
     }
-    .terminal-badge-pulse {
-        display: flex;
-        align-items: center;
-        gap: 6px;
+    .header-subtitle {
+        font-size: 0.8rem;
+        color: #64748b;
+        margin-left: 10px;
+        font-weight: 500;
+    }
+    .status-tag {
         font-size: 0.74rem;
         font-weight: 600;
-        background: rgba(14, 165, 233, 0.12);
-        color: #38bdf8;
-        border: 1px solid rgba(14, 165, 233, 0.3);
+        color: #94a3b8;
+        background: #162032;
+        border: 1px solid var(--border-color);
         padding: 4px 10px;
-        border-radius: 20px;
-        letter-spacing: 0.04em;
-    }
-    .pulse-dot {
-        width: 7px;
-        height: 7px;
-        background-color: #38bdf8;
-        border-radius: 50%;
-        box-shadow: 0 0 8px #38bdf8;
+        border-radius: 4px;
+        font-family: 'JetBrains Mono', monospace;
     }
 
-    /* KPI and Prediction Metric Cards */
-    .kpi-card {
+    /* Standardized Metric Card */
+    .metric-card {
         background: var(--bg-card);
-        border: 1px solid var(--border-subtle);
-        border-radius: 8px;
-        padding: 18px 20px;
-        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-        transition: border-color 0.2s ease, transform 0.2s ease;
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        padding: 16px 18px;
     }
-    .kpi-card:hover {
-        border-color: var(--border-strong);
-        transform: translateY(-2px);
-    }
-    .kpi-label {
-        font-size: 0.76rem;
+    .metric-title {
+        font-size: 0.74rem;
         font-weight: 600;
         text-transform: uppercase;
-        letter-spacing: 0.06em;
+        letter-spacing: 0.05em;
         color: var(--text-secondary);
         margin-bottom: 6px;
     }
-    .kpi-value {
-        font-size: 1.65rem;
+    .metric-value {
+        font-size: 1.55rem;
         font-weight: 700;
         color: #f8fafc;
         font-family: 'JetBrains Mono', monospace;
     }
-    .kpi-sub {
+    .metric-sub {
         font-size: 0.75rem;
         color: var(--text-muted);
-        margin-top: 4px;
-        display: flex;
-        align-items: center;
-        gap: 6px;
+        margin-top: 5px;
     }
 
-    /* Dominant Prediction Card */
-    .pred-card-container {
-        background: linear-gradient(145deg, #101625 0%, #0d121c 100%);
-        border: 1px solid #2b3954;
-        border-radius: 10px;
-        padding: 24px 28px;
-        margin-bottom: 22px;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    /* Prediction Forecast Panel */
+    .forecast-panel {
+        background: var(--bg-card);
+        border: 1px solid #283548;
+        border-radius: 6px;
+        padding: 22px 24px;
+        margin-bottom: 20px;
     }
 
-    /* Badges & Chips */
+    /* Badges */
     .chip-green {
         display: inline-block;
         background: var(--pos-green-bg);
         border: 1px solid rgba(16, 185, 129, 0.3);
         color: var(--pos-green) !important;
-        padding: 4px 10px;
+        padding: 3px 8px;
         border-radius: 4px;
-        font-size: 0.8rem;
+        font-size: 0.78rem;
         font-weight: 600;
         font-family: 'JetBrains Mono', monospace;
     }
@@ -219,123 +200,101 @@ st.markdown(
         background: var(--neg-red-bg);
         border: 1px solid rgba(239, 68, 68, 0.3);
         color: var(--neg-red) !important;
-        padding: 4px 10px;
+        padding: 3px 8px;
         border-radius: 4px;
-        font-size: 0.8rem;
+        font-size: 0.78rem;
         font-weight: 600;
         font-family: 'JetBrains Mono', monospace;
     }
-    .chip-blue {
+    .chip-neutral {
         display: inline-block;
-        background: rgba(14, 165, 233, 0.12);
-        border: 1px solid rgba(14, 165, 233, 0.3);
-        color: #38bdf8 !important;
-        padding: 4px 10px;
+        background: #162032;
+        border: 1px solid var(--border-color);
+        color: #94a3b8 !important;
+        padding: 3px 8px;
         border-radius: 4px;
-        font-size: 0.8rem;
-        font-weight: 600;
-        font-family: 'JetBrains Mono', monospace;
-    }
-    .chip-gold {
-        display: inline-block;
-        background: rgba(245, 158, 11, 0.12);
-        border: 1px solid rgba(245, 158, 11, 0.3);
-        color: #fbbf24 !important;
-        padding: 4px 10px;
-        border-radius: 4px;
-        font-size: 0.8rem;
+        font-size: 0.78rem;
         font-weight: 600;
         font-family: 'JetBrains Mono', monospace;
     }
 
-    /* Section Headers */
-    .term-header {
-        font-size: 0.85rem;
+    /* Section Subheadings */
+    .section-label {
+        font-size: 0.82rem;
         font-weight: 700;
-        color: #38bdf8;
+        color: #cbd5e1;
         text-transform: uppercase;
-        letter-spacing: 0.08em;
+        letter-spacing: 0.06em;
         margin: 18px 0 10px 0;
         display: flex;
         align-items: center;
         gap: 8px;
     }
-    .term-header::after {
+    .section-label::after {
         content: "";
         flex: 1;
         height: 1px;
-        background: linear-gradient(90deg, #1e293b 0%, rgba(30, 41, 59, 0) 100%);
+        background: var(--border-color);
     }
 
-    /* Stepper Workflow Visualizer */
-    .workflow-container {
+    /* Clean Pipeline Stage Row */
+    .pipeline-strip {
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        background: #0f1523;
-        border: 1px solid var(--border-subtle);
-        border-radius: 8px;
-        padding: 16px 20px;
-        margin: 14px 0 20px 0;
+        background: var(--bg-panel);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        padding: 12px 18px;
+        margin-bottom: 18px;
         overflow-x: auto;
     }
-    .step-item {
+    .stage-item {
         display: flex;
         flex-direction: column;
-        align-items: center;
-        text-align: center;
-        min-width: 100px;
+        flex: 1;
+        text-align: left;
+        padding: 4px 10px;
     }
-    .step-badge {
-        width: 32px;
-        height: 32px;
-        border-radius: 50%;
-        background: #1e293b;
-        color: #94a3b8;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+    .stage-num {
+        font-size: 0.7rem;
         font-weight: 700;
-        font-size: 0.85rem;
-        margin-bottom: 6px;
-        border: 1px solid #334155;
+        color: #38bdf8;
+        font-family: 'JetBrains Mono', monospace;
     }
-    .step-badge.active {
-        background: linear-gradient(135deg, #0ea5e9, #6366f1);
-        color: #ffffff;
-        border: none;
-        box-shadow: 0 0 12px rgba(14, 165, 233, 0.5);
-    }
-    .step-title {
-        font-size: 0.78rem;
+    .stage-name {
+        font-size: 0.8rem;
         font-weight: 600;
         color: #f1f5f9;
-        margin-bottom: 2px;
+        margin-top: 2px;
     }
-    .step-desc {
-        font-size: 0.68rem;
+    .stage-desc {
+        font-size: 0.7rem;
         color: #64748b;
     }
+    .stage-sep {
+        color: #334155;
+        font-size: 0.9rem;
+        padding: 0 8px;
+    }
 
-    /* Streamlit Button Styling */
+    /* Clean Solid Button */
     .stButton > button {
-        background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%) !important;
+        background: #1d4ed8 !important;
         color: #ffffff !important;
-        border: none !important;
-        border-radius: 6px !important;
+        border: 1px solid #2563eb !important;
+        border-radius: 4px !important;
         font-weight: 600 !important;
-        font-size: 0.88rem !important;
-        padding: 9px 18px !important;
-        box-shadow: 0 2px 10px rgba(2, 132, 199, 0.3) !important;
-        transition: all 0.2s ease !important;
+        font-size: 0.86rem !important;
+        padding: 8px 16px !important;
+        transition: background-color 0.15s ease !important;
     }
     .stButton > button:hover {
-        box-shadow: 0 4px 18px rgba(2, 132, 199, 0.5) !important;
-        transform: translateY(-1px);
+        background: #1e40af !important;
+        border-color: #3b82f6 !important;
     }
     hr {
-        border-color: var(--border-subtle) !important;
-        margin: 16px 0 !important;
+        border-color: var(--border-color) !important;
+        margin: 14px 0 !important;
     }
     </style>
     """,
@@ -343,59 +302,52 @@ st.markdown(
 )
 
 # ─────────────────────────────────────────────────────────────
-# PLOTLY UNIFIED THEME
+# PLOTLY FINANCIAL THEME
 # ─────────────────────────────────────────────────────────────
 GRID_COLOR = "#182234"
 
-def _plotly_layout(title: str = "", height: int = 400, **extra) -> dict:
-    """Returns a unified, high-contrast Plotly layout matching the dark terminal theme."""
-    return dict(
+def _plotly_layout(title: str = "", height: int = 380, **extra) -> dict:
+    """Returns a clean, uncluttered Plotly layout matching institutional financial tools."""
+    base = dict(
         template="plotly_dark",
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        title=dict(text=title, font=dict(family="Inter, sans-serif", size=13, color="#e2e8f0")),
+        title=dict(text=title, font=dict(family="Inter, sans-serif", size=12, color="#e2e8f0")),
         font=dict(family="Inter, sans-serif", color="#94a3b8", size=11),
         height=height,
-        margin=dict(l=45, r=20, t=45, b=35),
+        margin=dict(l=45, r=20, t=40, b=35),
         legend=dict(
-            bgcolor="rgba(13, 18, 29, 0.7)",
+            bgcolor="rgba(13, 18, 28, 0.8)",
             bordercolor="#1e293b",
             borderwidth=1,
             font=dict(color="#cbd5e1", size=11),
         ),
-        xaxis=dict(gridcolor=GRID_COLOR, zerolinecolor="#223147", showline=False),
-        yaxis=dict(gridcolor=GRID_COLOR, zerolinecolor="#223147", showline=False),
-        **extra,
+        xaxis=dict(gridcolor=GRID_COLOR, zerolinecolor="#1e293b", showline=False),
+        yaxis=dict(gridcolor=GRID_COLOR, zerolinecolor="#1e293b", showline=False),
     )
+    base.update(extra)
+    return base
 
 # ─────────────────────────────────────────────────────────────
-# CACHED DATA INGESTION HELPERS
+# CACHED DATA INGESTION HELPER
 # ─────────────────────────────────────────────────────────────
 @st.cache_data(show_spinner=False)
 def _cached_api_load(ticker: str, period: str = "1y") -> pd.DataFrame:
     return get_stock_data(tickers=[ticker], period=period)
 
 # ─────────────────────────────────────────────────────────────
-# TOP EXECUTIVE BRANDING BANNER
+# CLEAN HEADER BAR
 # ─────────────────────────────────────────────────────────────
 st.markdown(
     """
-    <div class="terminal-nav-header">
-        <div class="terminal-logo-box">
-            <div style="background: linear-gradient(135deg, #0ea5e9, #6366f1); width: 34px; height: 34px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: 800; color: white; font-size: 1rem; box-shadow: 0 0 12px rgba(14,165,233,0.4);">⚡</div>
-            <div>
-                <span style="font-weight: 700; font-size: 1.15rem; color: #f8fafc; letter-spacing: -0.02em;">StockSense</span>
-                <span style="font-size: 0.72rem; color: #64748b; margin-left: 8px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Big Data Stock Market Prediction System</span>
-            </div>
+    <div class="header-bar">
+        <div>
+            <span class="header-title">StockSense</span>
+            <span class="header-subtitle">Big Data Analytics in Stock Market Prediction</span>
         </div>
-        <div style="display: flex; align-items: center; gap: 10px;">
-            <div class="terminal-badge-pulse">
-                <div class="pulse-dot"></div>
-                Apache PySpark 3.5 Active
-            </div>
-            <div style="background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3); color: #34d399; padding: 4px 10px; border-radius: 20px; font-size: 0.74rem; font-weight: 600; letter-spacing: 0.04em;">
-                US (NASDAQ/NYSE) & Indian (NSE) Equities
-            </div>
+        <div style="display: flex; gap: 8px;">
+            <span class="status-tag">Apache PySpark 3.5</span>
+            <span class="status-tag">Dual-Market (US / NSE)</span>
         </div>
     </div>
     """,
@@ -403,22 +355,20 @@ st.markdown(
 )
 
 # ─────────────────────────────────────────────────────────────
-# SIDEBAR CONTROLS: STOCK SELECTION & INGESTION
+# SIDEBAR NAVIGATION & DATA INGESTION
 # ─────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown(
         """
-        <div style="padding: 4px 0 10px 0;">
-            <div style="font-weight: 700; font-size: 1.05rem; color: #f8fafc;">System Navigation</div>
-            <div style="font-size: 0.72rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em;">Big Data Prediction Architecture</div>
+        <div style="padding: 2px 0 10px 0;">
+            <div style="font-weight: 700; font-size: 0.95rem; color: #f8fafc;">Navigation</div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    # 4 Main Pages Only
     page = st.radio(
-        "Navigation Menu",
+        "Navigation",
         [
             "Prediction Dashboard",
             "Data Processing",
@@ -430,17 +380,16 @@ with st.sidebar:
     )
     st.markdown("---")
 
-    st.markdown('<p class="term-header">Stock Selection</p>', unsafe_allow_html=True)
+    st.markdown('<p class="section-label">Stock Selection</p>', unsafe_allow_html=True)
     CORE_STOCK_PRESETS = ["NVDA", "AAPL", "MSFT", "RELIANCE.NS", "TCS.NS"]
     
     selected_stock = st.selectbox(
-        "Target Equity",
+        "Stock Ticker",
         CORE_STOCK_PRESETS,
         index=0,
-        help="Select stock for Big Data processing and ML prediction",
     )
 
-    st.markdown('<p class="term-header">Data Source Mode</p>', unsafe_allow_html=True)
+    st.markdown('<p class="section-label">Data Ingestion Source</p>', unsafe_allow_html=True)
     data_mode = st.radio(
         "Ingestion Source",
         ["Live (Yahoo Finance)", "Offline Sample Dataset", "Upload File (CSV/Parquet)"],
@@ -452,26 +401,24 @@ with st.sidebar:
     data_source_badge = ""
     data_source_type = ""
 
-    # Load Data Based on Ingestion Mode
     if data_mode == "Live (Yahoo Finance)":
-        with st.spinner(f"Ingesting live market feed for {selected_stock}..."):
+        with st.spinner(f"Fetching market data for {selected_stock}..."):
             try:
                 df_raw = _cached_api_load(selected_stock, period="1y")
-                data_source_badge = "Live Market Data (Yahoo Finance API)"
+                data_source_badge = "Live Market Data (Yahoo Finance)"
                 data_source_type = "LIVE"
             except Exception as exc:
-                st.warning(f"Live API unavailable ({exc}). Falling back to cached offline sample.")
-                # Fallback to local sample dataset
+                st.warning(f"Live API unavailable ({exc}). Using offline sample dataset.")
                 normalized_name = selected_stock.replace(".", "_")
                 sample_p = get_sample_data_dir() / f"{normalized_name}.parquet"
                 if not sample_p.exists():
                     sample_p = get_sample_data_dir() / f"{selected_stock}.parquet"
                 if sample_p.exists():
                     df_raw = load_local_dataset(sample_p)
-                    data_source_badge = "Offline Sample Dataset (Auto-Fallback)"
+                    data_source_badge = "Offline Sample Dataset"
                     data_source_type = "SAMPLE"
                 else:
-                    st.error("No offline sample found. Please check data/sample/ directory.")
+                    st.error("Offline dataset not found.")
                     st.stop()
 
     elif data_mode == "Offline Sample Dataset":
@@ -502,7 +449,7 @@ with st.sidebar:
             try:
                 df_raw, up_ticker = parse_uploaded_file(uploaded)
                 selected_stock = up_ticker
-                data_source_badge = f"Uploaded Dataset ({uploaded.name})"
+                data_source_badge = f"Uploaded File ({uploaded.name})"
                 data_source_type = "UPLOAD"
             except Exception as exc:
                 st.error(f"Error parsing uploaded file: {exc}")
@@ -512,17 +459,15 @@ with st.sidebar:
             st.stop()
 
     st.markdown("---")
-    st.markdown('<p class="term-header">Cluster Telemetry</p>', unsafe_allow_html=True)
+    st.markdown('<p class="section-label">System Status</p>', unsafe_allow_html=True)
     spark_info = get_spark_status()
     if spark_info["pyspark_installed"]:
-        st.markdown('<span class="chip-blue">Engine: Apache Spark 3.5</span>', unsafe_allow_html=True)
+        st.markdown('<span class="status-tag">Engine: Apache Spark 3.5</span>', unsafe_allow_html=True)
     else:
-        st.markdown('<span class="chip-gold">Engine: Pandas Fallback</span>', unsafe_allow_html=True)
+        st.markdown('<span class="status-tag">Engine: Pandas Fallback</span>', unsafe_allow_html=True)
 
-    if data_source_type == "LIVE":
-        st.markdown('<span class="chip-green">Feed: Real-Time Active</span>', unsafe_allow_html=True)
-    else:
-        st.markdown('<span class="chip-gold">Feed: Offline / Cached</span>', unsafe_allow_html=True)
+    feed_class = "chip-green" if data_source_type == "LIVE" else "chip-neutral"
+    st.markdown(f'<div style="margin-top: 6px;"><span class="{feed_class}">Feed: {data_source_type}</span></div>', unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────────────────────
 # DATA SANITY & ETL EXECUTION OR RETRIEVAL
@@ -531,7 +476,6 @@ if df_raw.empty:
     st.warning("No data available for the selected stock. Please select another stock or source.")
     st.stop()
 
-# Flatten and extract single-ticker close series
 close_col = "Adj Close" if "Adj Close" in df_raw.columns else ("Close" if "Close" in df_raw.columns else df_raw.columns[0])
 if isinstance(df_raw.columns, pd.MultiIndex):
     if selected_stock in df_raw.columns.get_level_values(1):
@@ -541,10 +485,8 @@ if isinstance(df_raw.columns, pd.MultiIndex):
 else:
     df_flat = df_raw.copy()
 
-# Currency resolution
 currency_sym = "₹" if selected_stock.endswith(".NS") else "$"
 
-# Cache processed dataset in session state so ETL and Prediction share the exact same dataset
 cache_key = f"spark_processed_{selected_stock}"
 proc_dir = str(get_processed_data_dir())
 
@@ -564,26 +506,25 @@ processed_df = spark_results.get("processed_df", df_flat)
 # PAGE 1: PREDICTION DASHBOARD (PRIMARY LANDING PAGE)
 # ══════════════════════════════════════════════════════════════
 if page == "Prediction Dashboard":
-    st.markdown(f"### Stock Prediction Dashboard · {selected_stock}")
-    st.caption(f"Big Data Feature Pipeline & Chronological Machine Learning Forecast · {data_source_badge}")
+    st.markdown(f"### Stock Prediction Dashboard: {selected_stock}")
+    st.caption(f"Big Data Feature Pipeline & Chronological Machine Learning Forecast | {data_source_badge}")
     st.markdown("---")
 
-    # Latest Available Closing Price
     latest_close = float(df_flat[close_col].iloc[-1])
     latest_date = df_flat.index[-1].strftime("%b %d, %Y") if hasattr(df_flat.index[-1], "strftime") else str(df_flat.index[-1])
     prev_close = float(df_flat[close_col].iloc[-2]) if len(df_flat) > 1 else latest_close
     day_change = latest_close - prev_close
     day_pct = (day_change / prev_close) * 100.0 if prev_close != 0 else 0.0
 
-    # Top KPI Row: Stock, Latest Price, Data Source
+    # Top KPI Row
     kpi_col1, kpi_col2, kpi_col3 = st.columns([1.2, 1.2, 1.6])
     with kpi_col1:
         st.markdown(
             f"""
-            <div class="kpi-card">
-                <div class="kpi-label">Active Stock Symbol</div>
-                <div class="kpi-value">{selected_stock}</div>
-                <div class="kpi-sub">Market: {'National Stock Exchange of India' if selected_stock.endswith('.NS') else 'US Equities (NASDAQ/NYSE)'}</div>
+            <div class="metric-card">
+                <div class="metric-title">Selected Stock</div>
+                <div class="metric-value">{selected_stock}</div>
+                <div class="metric-sub">Exchange: {'National Stock Exchange (NSE)' if selected_stock.endswith('.NS') else 'US Equities (NASDAQ/NYSE)'}</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -592,10 +533,10 @@ if page == "Prediction Dashboard":
         change_class = "chip-green" if day_change >= 0 else "chip-red"
         st.markdown(
             f"""
-            <div class="kpi-card">
-                <div class="kpi-label">Latest Closing Price ({latest_date})</div>
-                <div class="kpi-value">{currency_sym}{latest_close:,.2f}</div>
-                <div class="kpi-sub"><span class="{change_class}">{day_change:+.2f} ({day_pct:+.2f}%)</span> vs prev day</div>
+            <div class="metric-card">
+                <div class="metric-title">Latest Close ({latest_date})</div>
+                <div class="metric-value">{currency_sym}{latest_close:,.2f}</div>
+                <div class="metric-sub"><span class="{change_class}">{day_change:+.2f} ({day_pct:+.2f}%)</span> vs prev day</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -603,10 +544,10 @@ if page == "Prediction Dashboard":
     with kpi_col3:
         st.markdown(
             f"""
-            <div class="kpi-card">
-                <div class="kpi-label">Data Ingestion Origin</div>
-                <div class="kpi-value" style="font-size: 1.25rem;">{data_source_badge.split('(')[0].strip()}</div>
-                <div class="kpi-sub"><span class="chip-blue">{len(df_flat)} Records Available</span> · Cleaned via PySpark</div>
+            <div class="metric-card">
+                <div class="metric-title">Data Ingestion Origin</div>
+                <div class="metric-value" style="font-size: 1.2rem;">{data_source_badge.split('(')[0].strip()}</div>
+                <div class="metric-sub">{len(df_flat)} Records Available | Processed with PySpark</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -614,8 +555,8 @@ if page == "Prediction Dashboard":
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Historical Price Chart
-    st.markdown('<p class="term-header">Historical Stock Price Action & Moving Averages</p>', unsafe_allow_html=True)
+    # Historical Stock Price Chart
+    st.markdown('<p class="section-label">Historical Stock Price Action & Moving Averages</p>', unsafe_allow_html=True)
     
     fig_hist = go.Figure()
     fig_hist.add_trace(
@@ -625,11 +566,8 @@ if page == "Prediction Dashboard":
             name="Close Price",
             mode="lines",
             line=dict(color="#38bdf8", width=2),
-            fill="tozeroy",
-            fillcolor="rgba(14, 165, 233, 0.08)",
         )
     )
-    # Add 20-day SMA if in processed_df
     if "SMA_20" in processed_df.columns:
         fig_hist.add_trace(
             go.Scatter(
@@ -651,14 +589,14 @@ if page == "Prediction Dashboard":
             )
         )
     fig_hist.update_layout(
-        **_plotly_layout(f"{selected_stock} Historical Closing Price & Moving Average Trends", height=380),
+        **_plotly_layout(f"{selected_stock} Historical Closing Price & Moving Averages", height=360),
         xaxis_title="Date",
         yaxis_title=f"Price ({currency_sym})",
     )
     st.plotly_chart(fig_hist, use_container_width=True)
 
-    # Prediction Controls & Execution
-    st.markdown('<p class="term-header">Prediction Configuration</p>', unsafe_allow_html=True)
+    # Prediction Controls
+    st.markdown('<p class="section-label">Prediction Configuration</p>', unsafe_allow_html=True)
     
     ctrl_col1, ctrl_col2, ctrl_col3 = st.columns([1.5, 1.5, 1.0])
     with ctrl_col1:
@@ -678,7 +616,7 @@ if page == "Prediction Dashboard":
         st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
         predict_btn = st.button("Generate Prediction", use_container_width=True)
 
-    # Train and evaluate selected prediction model
+    # Train and Evaluate Model
     with st.spinner(f"Training {model_choice} on chronological features..."):
         try:
             pred_res = train_and_evaluate_model(
@@ -696,24 +634,24 @@ if page == "Prediction Dashboard":
     delta_pct = pred_res["predicted_change_pct"]
     is_positive = delta_val >= 0
 
-    # DOMINANT PREDICTION CARD
+    # FORECAST PANEL (Clean, Refined, High Visual Hierarchy)
     move_color = "#10b981" if is_positive else "#ef4444"
     move_symbol = "+" if is_positive else ""
     move_badge = "chip-green" if is_positive else "chip-red"
 
     st.markdown(
         f"""
-        <div class="pred-card-container">
+        <div class="forecast-panel">
             <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
                 <div>
-                    <div style="font-size: 0.8rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px;">
-                        Model Forecast · {pred_res['engine_name']}
+                    <div style="font-size: 0.76rem; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px;">
+                        Model Forecast | {pred_res['engine_name']}
                     </div>
-                    <div style="font-size: 2.8rem; font-weight: 800; color: #ffffff; font-family: 'JetBrains Mono', monospace; line-height: 1.1;">
+                    <div style="font-size: 2.6rem; font-weight: 700; color: #ffffff; font-family: 'JetBrains Mono', monospace; line-height: 1.1;">
                         {currency_sym}{forecast_price:,.2f}
                     </div>
                     <div style="margin-top: 10px; display: flex; align-items: center; gap: 10px;">
-                        <span class="{move_badge}" style="font-size: 1rem; padding: 4px 12px;">
+                        <span class="{move_badge}" style="font-size: 0.95rem; padding: 4px 10px;">
                             Expected Move: {move_symbol}{currency_sym}{abs(delta_val):.2f} ({move_symbol}{delta_pct:.2f}%)
                         </span>
                         <span style="font-size: 0.8rem; color: #94a3b8;">
@@ -721,20 +659,20 @@ if page == "Prediction Dashboard":
                         </span>
                     </div>
                 </div>
-                <div style="background: rgba(15, 23, 42, 0.8); border: 1px solid #1e293b; border-radius: 8px; padding: 14px 20px; min-width: 260px;">
-                    <div style="font-size: 0.74rem; font-weight: 700; color: #38bdf8; text-transform: uppercase; margin-bottom: 8px;">
+                <div style="background: #090d14; border: 1px solid var(--border-color); border-radius: 6px; padding: 14px 18px; min-width: 250px;">
+                    <div style="font-size: 0.72rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 8px;">
                         Out-of-Sample Test Reliability
                     </div>
-                    <div style="font-size: 0.85rem; color: #cbd5e1; display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <div style="font-size: 0.82rem; color: #cbd5e1; display: flex; justify-content: space-between; margin-bottom: 4px;">
                         <span>Test MAE:</span> <b class="mono-num">{currency_sym}{pred_res['mae']:.2f}</b>
                     </div>
-                    <div style="font-size: 0.85rem; color: #cbd5e1; display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <div style="font-size: 0.82rem; color: #cbd5e1; display: flex; justify-content: space-between; margin-bottom: 4px;">
                         <span>Test RMSE:</span> <b class="mono-num">{currency_sym}{pred_res['rmse']:.2f}</b>
                     </div>
-                    <div style="font-size: 0.85rem; color: #cbd5e1; display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <div style="font-size: 0.82rem; color: #cbd5e1; display: flex; justify-content: space-between; margin-bottom: 4px;">
                         <span>Directional Accuracy:</span> <b class="mono-num" style="color: {'#10b981' if pred_res['directional_accuracy_pct'] >= 50 else '#ef4444'};">{pred_res['directional_accuracy_pct']:.1f}%</b>
                     </div>
-                    <div style="font-size: 0.85rem; color: #cbd5e1; display: flex; justify-content: space-between;">
+                    <div style="font-size: 0.82rem; color: #cbd5e1; display: flex; justify-content: space-between;">
                         <span>Naive Baseline MAE:</span> <b class="mono-num">{currency_sym}{pred_res['baseline_mae']:.2f}</b>
                     </div>
                 </div>
@@ -745,7 +683,7 @@ if page == "Prediction Dashboard":
     )
 
     # Actual versus Predicted Historical Chart
-    st.markdown('<p class="term-header">Actual vs. Predicted Historical Performance (Out-of-Sample Test Window)</p>', unsafe_allow_html=True)
+    st.markdown('<p class="section-label">Actual vs. Predicted Historical Performance (Test Window)</p>', unsafe_allow_html=True)
     
     viz_df = pred_res["viz_df"]
     fig_pred = go.Figure()
@@ -753,9 +691,9 @@ if page == "Prediction Dashboard":
         go.Scatter(
             x=viz_df.index,
             y=viz_df["Actual_Close"],
-            name="Actual Close Price",
+            name="Actual Close",
             mode="lines+markers",
-            line=dict(color="#38bdf8", width=2.5),
+            line=dict(color="#38bdf8", width=2),
             marker=dict(size=4),
         )
     )
@@ -765,7 +703,7 @@ if page == "Prediction Dashboard":
             y=viz_df["Predicted_Close"],
             name=f"Predicted ({pred_res['engine_name']})",
             mode="lines",
-            line=dict(color="#f59e0b", width=2, dash="dash"),
+            line=dict(color="#f59e0b", width=1.8, dash="dash"),
         )
     )
     fig_pred.add_trace(
@@ -780,36 +718,36 @@ if page == "Prediction Dashboard":
     fig_pred.update_layout(
         **_plotly_layout(
             f"{selected_stock}: Ground Truth vs. {pred_res['engine_name']} Forecasts ({pred_res['test_period']})",
-            height=400,
+            height=380,
         ),
         xaxis_title="Date",
         yaxis_title=f"Price ({currency_sym})",
     )
     st.plotly_chart(fig_pred, use_container_width=True)
 
-    # Prediction Summary Box
-    st.markdown('<p class="term-header">Prediction Summary & Feature Contribution</p>', unsafe_allow_html=True)
+    # Prediction Summary
+    st.markdown('<p class="section-label">Prediction Summary & Feature Contribution</p>', unsafe_allow_html=True)
     
     sum_col1, sum_col2 = st.columns([1.6, 1.4])
     with sum_col1:
         st.markdown(
             f"""
-            <div style="background: #0d121d; border: 1px solid var(--border-subtle); border-radius: 8px; padding: 18px 22px;">
-                <div style="font-weight: 700; font-size: 0.95rem; color: #f8fafc; margin-bottom: 8px;">
-                    Model Interpretation & Educational Disclosure
+            <div class="metric-card">
+                <div style="font-weight: 600; font-size: 0.9rem; color: #f8fafc; margin-bottom: 6px;">
+                    Model Interpretation & Methodology
                 </div>
-                <p style="font-size: 0.84rem; color: #94a3b8; line-height: 1.6; margin-bottom: 8px;">
-                    The <b>{pred_res['engine_name']}</b> forecasts an estimated future price of 
+                <p style="font-size: 0.82rem; color: #94a3b8; line-height: 1.5; margin-bottom: 8px;">
+                    The <b>{pred_res['engine_name']}</b> projects an estimated price of 
                     <b style="color: #ffffff;">{currency_sym}{forecast_price:,.2f}</b> over a horizon of <b>{horizon_days} trading day{'s' if horizon_days > 1 else ''}</b>, 
-                    representing an expected movement of <b style="color: {move_color};">{move_symbol}{delta_pct:.2f}%</b> from the latest close of {currency_sym}{latest_close:,.2f}.
+                    representing an expected move of <b style="color: {move_color};">{move_symbol}{delta_pct:.2f}%</b> from the latest close of {currency_sym}{latest_close:,.2f}.
                 </p>
-                <p style="font-size: 0.84rem; color: #94a3b8; line-height: 1.6; margin-bottom: 8px;">
-                    • <b>Data Split:</b> Evaluated on {pred_res['test_samples']} out-of-sample trading days ({pred_res['test_period']}) strictly partitioned chronologically without lookahead data leakage.<br>
-                    • <b>Error Tolerance:</b> Test Mean Absolute Error is ±{currency_sym}{pred_res['mae']:.2f} ({pred_res['mae']/latest_close*100:.2f}% of current price).<br>
-                    • <b>Benchmark Context:</b> Naive Previous-Day baseline achieved an MAE of ±{currency_sym}{pred_res['baseline_mae']:.2f}.
+                <p style="font-size: 0.82rem; color: #94a3b8; line-height: 1.5; margin-bottom: 8px;">
+                    • <b>Data Partition:</b> Evaluated across {pred_res['test_samples']} out-of-sample trading days ({pred_res['test_period']}) with strict chronological order.<br>
+                    • <b>Error Tolerance:</b> Test Mean Absolute Error is ±{currency_sym}{pred_res['mae']:.2f}.<br>
+                    • <b>Baseline Comparison:</b> Naive Previous-Day baseline achieved an MAE of ±{currency_sym}{pred_res['baseline_mae']:.2f}.
                 </p>
-                <div style="font-size: 0.74rem; color: #64748b; font-style: italic;">
-                    Academic Disclosure: This prediction is generated solely for academic demonstration in Big Data analytics. Financial markets exhibit non-stationary stochastic behavior; predictions do not constitute investment advice.
+                <div style="font-size: 0.74rem; color: #64748b;">
+                    Note: Predictions are generated for academic demonstration in Big Data analytics. Stock price movements are non-stationary and carry inherent market risk.
                 </div>
             </div>
             """,
@@ -818,19 +756,16 @@ if page == "Prediction Dashboard":
     with sum_col2:
         top_features = list(pred_res["feature_importance"].items())[:6]
         if top_features:
-            feat_df = pd.DataFrame(top_features, columns=["Feature", "Contribution / Weight"])
+            feat_df = pd.DataFrame(top_features, columns=["Feature", "Contribution"])
             fig_feat = px.bar(
                 feat_df,
-                x="Contribution / Weight",
+                x="Contribution",
                 y="Feature",
                 orientation="h",
-                color="Contribution / Weight",
-                color_continuous_scale="Blues",
+                color_discrete_sequence=["#38bdf8"],
             )
             fig_feat.update_layout(
-                **_plotly_layout("Top Contributing Engineered Features", height=240),
-                coloraxis_showscale=False,
-                margin=dict(l=70, r=20, t=35, b=25),
+                **_plotly_layout("Top Contributing Features", height=230, margin=dict(l=70, r=20, t=35, b=25))
             )
             st.plotly_chart(fig_feat, use_container_width=True)
 
@@ -840,73 +775,73 @@ if page == "Prediction Dashboard":
 # ══════════════════════════════════════════════════════════════
 elif page == "Data Processing":
     st.markdown("### Big Data Processing Pipeline")
-    st.caption(f"Distributed Ingestion, Validation, Feature Engineering & Parquet Serialization · {selected_stock}")
+    st.caption(f"Distributed Ingestion, Validation, Feature Engineering & Parquet Serialization | {selected_stock}")
     st.markdown("---")
 
-    # Workflow Stepper Diagram
+    # Clean Pipeline Stages Strip (No cartoons or glowing circles)
     st.markdown(
         """
-        <div class="workflow-container">
-            <div class="step-item">
-                <div class="step-badge active">1</div>
-                <div class="step-title">Ingestion</div>
-                <div class="step-desc">Historical OHLCV</div>
+        <div class="pipeline-strip">
+            <div class="stage-item">
+                <span class="stage-num">01 INGESTION</span>
+                <span class="stage-name">Historical OHLCV</span>
+                <span class="stage-desc">US & NSE Equities</span>
             </div>
-            <div style="color: #334155; font-size: 1.2rem;">→</div>
-            <div class="step-item">
-                <div class="step-badge active">2</div>
-                <div class="step-title">Validation</div>
-                <div class="step-desc">Schema & Nulls</div>
+            <div class="stage-sep">/</div>
+            <div class="stage-item">
+                <span class="stage-num">02 VALIDATION</span>
+                <span class="stage-name">Schema & Nulls</span>
+                <span class="stage-desc">Forward/Backward Imputation</span>
             </div>
-            <div style="color: #334155; font-size: 1.2rem;">→</div>
-            <div class="step-item">
-                <div class="step-badge active">3</div>
-                <div class="step-title">IQR Outliers</div>
-                <div class="step-desc">Treatment Flag</div>
+            <div class="stage-sep">/</div>
+            <div class="stage-item">
+                <span class="stage-num">03 OUTLIERS</span>
+                <span class="stage-name">IQR Detection</span>
+                <span class="stage-desc">Tagged in Outlier_Flag</span>
             </div>
-            <div style="color: #334155; font-size: 1.2rem;">→</div>
-            <div class="step-item">
-                <div class="step-badge active">4</div>
-                <div class="step-title">Spark Window</div>
-                <div class="step-desc">Lags & Rolling SMA</div>
+            <div class="stage-sep">/</div>
+            <div class="stage-item">
+                <span class="stage-num">04 SPARK WINDOW</span>
+                <span class="stage-name">Feature Engineering</span>
+                <span class="stage-desc">Lags & Rolling SMA</span>
             </div>
-            <div style="color: #334155; font-size: 1.2rem;">→</div>
-            <div class="step-item">
-                <div class="step-badge active">5</div>
-                <div class="step-title">Parquet Storage</div>
-                <div class="step-desc">Snappy Compression</div>
+            <div class="stage-sep">/</div>
+            <div class="stage-item">
+                <span class="stage-num">05 STORAGE</span>
+                <span class="stage-name">Snappy Parquet</span>
+                <span class="stage-desc">data/processed/</span>
             </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    # Re-run button for presentation demonstration
+    # Re-run execution control
     run_col1, run_col2 = st.columns([2.5, 1.5])
     with run_col1:
-        st.write("Click below to trigger a live distributed execution through Apache Spark DataFrame APIs:")
+        st.write("Execute distributed processing job through Apache PySpark DataFrame APIs:")
     with run_col2:
-        if st.button("⚡ Execute PySpark Pipeline", use_container_width=True):
+        if st.button("Run PySpark Pipeline", use_container_width=True):
             with st.spinner("Executing PySpark distributed transformations..."):
                 st.session_state[cache_key] = process_stock_data_spark(
                     df_flat,
                     ticker=selected_stock,
                     output_dir=proc_dir,
                 )
-            st.success("PySpark execution completed successfully!")
+            st.success("PySpark execution completed successfully.")
 
     spark_res = st.session_state[cache_key]
 
-    # Processing Metrics KPI Cards
-    st.markdown('<p class="term-header">Execution Metrics & Cluster Telemetry</p>', unsafe_allow_html=True)
+    # Processing Metrics
+    st.markdown('<p class="section-label">Pipeline Execution Metrics</p>', unsafe_allow_html=True)
     m_col1, m_col2, m_col3, m_col4 = st.columns(4)
     with m_col1:
         st.markdown(
             f"""
-            <div class="kpi-card">
-                <div class="kpi-label">Input / Output Records</div>
-                <div class="kpi-value">{spark_res['raw_records']} / {spark_res['processed_records']}</div>
-                <div class="kpi-sub">Cleaned records: <b>{spark_res['processed_records']}</b></div>
+            <div class="metric-card">
+                <div class="metric-title">Input / Output Records</div>
+                <div class="metric-value">{spark_res['raw_records']} / {spark_res['processed_records']}</div>
+                <div class="metric-sub">Cleaned records: <b>{spark_res['processed_records']}</b></div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -914,10 +849,10 @@ elif page == "Data Processing":
     with m_col2:
         st.markdown(
             f"""
-            <div class="kpi-card">
-                <div class="kpi-label">Duplicates & Missing Handled</div>
-                <div class="kpi-value">{spark_res['duplicates_removed']} / {spark_res['missing_values_handled']}</div>
-                <div class="kpi-sub">Forward/Backward Imputation</div>
+            <div class="metric-card">
+                <div class="metric-title">Duplicates & Missing Handled</div>
+                <div class="metric-value">{spark_res['duplicates_removed']} / {spark_res['missing_values_handled']}</div>
+                <div class="metric-sub">Imputed cleanly</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -925,10 +860,10 @@ elif page == "Data Processing":
     with m_col3:
         st.markdown(
             f"""
-            <div class="kpi-card">
-                <div class="kpi-label">Outliers Flagged (IQR)</div>
-                <div class="kpi-value">{spark_res['outliers_detected']}</div>
-                <div class="kpi-sub">Flagged in <code>Outlier_Flag</code></div>
+            <div class="metric-card">
+                <div class="metric-title">Outliers Flagged (IQR)</div>
+                <div class="metric-value">{spark_res['outliers_detected']}</div>
+                <div class="metric-sub">Marked in <code>Outlier_Flag</code></div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -936,25 +871,24 @@ elif page == "Data Processing":
     with m_col4:
         st.markdown(
             f"""
-            <div class="kpi-card">
-                <div class="kpi-label">Execution Duration</div>
-                <div class="kpi-value">{spark_res['duration_seconds']}s</div>
-                <div class="kpi-sub">Partitions: <b>{spark_res['partitions']}</b></div>
+            <div class="metric-card">
+                <div class="metric-title">Execution Duration</div>
+                <div class="metric-value">{spark_res['duration_seconds']}s</div>
+                <div class="metric-sub">Partitions: <b>{spark_res['partitions']}</b></div>
             </div>
             """,
             unsafe_allow_html=True,
         )
 
-    # Engine Transparency Badge
+    # Engine Status Row
     st.markdown("<br>", unsafe_allow_html=True)
     eng_name = spark_res["engine"]
-    eng_chip = "chip-blue" if "PySpark" in eng_name else "chip-gold"
     st.markdown(
         f"""
-        <div style="background: #0f1523; border: 1px solid var(--border-subtle); border-radius: 8px; padding: 14px 20px; display: flex; align-items: center; justify-content: space-between;">
+        <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px 18px; display: flex; align-items: center; justify-content: space-between;">
             <div>
-                <span style="font-size: 0.8rem; color: #94a3b8; font-weight: 600; text-transform: uppercase;">Processing Engine:</span>
-                <span class="{eng_chip}" style="margin-left: 10px;">{eng_name}</span>
+                <span style="font-size: 0.8rem; color: #94a3b8; font-weight: 600;">Processing Engine:</span>
+                <span class="status-tag" style="margin-left: 8px;">{eng_name}</span>
             </div>
             <div style="font-size: 0.78rem; color: #94a3b8;">
                 Storage Sink: <code style="color: #38bdf8;">{spark_res['output_parquet']}</code>
@@ -968,13 +902,13 @@ elif page == "Data Processing":
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown(
         f"""
-        <div style="background: rgba(14, 165, 233, 0.06); border: 1px solid rgba(14, 165, 233, 0.2); border-radius: 8px; padding: 14px 18px;">
-            <div style="font-size: 0.82rem; font-weight: 700; color: #38bdf8; margin-bottom: 4px;">
-                Outlier Treatment & Academic Integrity Protocol
+        <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; padding: 14px 18px;">
+            <div style="font-size: 0.82rem; font-weight: 600; color: #cbd5e1; margin-bottom: 4px;">
+                Outlier Handling Methodology
             </div>
             <div style="font-size: 0.8rem; color: #94a3b8; line-height: 1.5;">
                 {spark_res.get('outlier_treatment', 'Outlier detection via Interquartile Range (IQR). Genuine extreme market events are preserved.')}
-                To prevent distortion in downstream machine learning estimators while honoring financial reality, extreme price moves are identified via the IQR threshold <code>[Q1 - 1.5*IQR, Q3 + 1.5*IQR]</code> and annotated in the <code>Outlier_Flag</code> column without altering historical prices.
+                Extreme price movements are identified via the IQR threshold <code>[Q1 - 1.5*IQR, Q3 + 1.5*IQR]</code> and annotated in the <code>Outlier_Flag</code> column without dropping historical rows, preserving market reality for downstream models.
             </div>
         </div>
         """,
@@ -982,18 +916,18 @@ elif page == "Data Processing":
     )
 
     # Generated Features Specification
-    st.markdown('<p class="term-header">Generated Features in PySpark Processing</p>', unsafe_allow_html=True)
+    st.markdown('<p class="section-label">Generated Features</p>', unsafe_allow_html=True)
     
     features_list = spark_res.get("generated_features", [])
-    feat_chips = " ".join([f'<span class="chip-blue" style="margin: 3px 4px;">{f}</span>' for f in features_list])
+    feat_chips = " ".join([f'<span class="status-tag" style="margin: 3px 4px;">{f}</span>' for f in features_list])
     st.markdown(
         f"""
-        <div style="background: #0d121d; border: 1px solid var(--border-subtle); border-radius: 8px; padding: 16px 20px; margin-bottom: 20px;">
-            <div style="font-size: 0.82rem; font-weight: 600; color: #f8fafc; margin-bottom: 8px;">
-                Engineered Features Produced for Machine Learning ({len(features_list)} Features):
+        <div class="metric-card" style="margin-bottom: 18px;">
+            <div style="font-size: 0.8rem; font-weight: 600; color: #f8fafc; margin-bottom: 8px;">
+                Features Produced for Machine Learning ({len(features_list)} Features):
             </div>
             <div>{feat_chips}</div>
-            <div style="font-size: 0.75rem; color: #64748b; margin-top: 10px;">
+            <div style="font-size: 0.74rem; color: #64748b; margin-top: 10px;">
                 Calculated using distributed PySpark Window functions over chronological partitions: <code>Window.partitionBy(F.lit("GLOBAL")).orderBy("Date")</code>.
             </div>
         </div>
@@ -1002,8 +936,8 @@ elif page == "Data Processing":
     )
 
     # Before and After Data Previews
-    st.markdown('<p class="term-header">Before & After Data Previews</p>', unsafe_allow_html=True)
-    prev_tab1, prev_tab2 = st.tabs(["Processed Dataset Preview (Features Engineered)", "Raw Input Ingestion Sample"])
+    st.markdown('<p class="section-label">Before & After Data Previews</p>', unsafe_allow_html=True)
+    prev_tab1, prev_tab2 = st.tabs(["Processed Parquet Dataset (Features Included)", "Raw Input Ingestion Sample"])
     
     with prev_tab1:
         st.write("Cleaned and transformed dataset loaded from Parquet sink:")
@@ -1021,11 +955,10 @@ elif page == "Data Processing":
 # PAGE 3: MODEL EVALUATION (ACADEMIC BENCHMARKING)
 # ══════════════════════════════════════════════════════════════
 elif page == "Model Evaluation":
-    st.markdown(f"### Machine Learning Model Evaluation · {selected_stock}")
-    st.caption("Rigorous Out-of-Sample Chronological Validation & Baseline Comparison")
+    st.markdown(f"### Model Evaluation & Baseline Benchmark: {selected_stock}")
+    st.caption("Out-of-Sample Chronological Validation & Baseline Comparison")
     st.markdown("---")
 
-    # Horizon Selector for Comparative Evaluation
     eval_col1, eval_col2 = st.columns([2.0, 2.0])
     with eval_col1:
         eval_horizon = st.select_slider(
@@ -1035,10 +968,16 @@ elif page == "Model Evaluation":
             format_func=lambda x: f"{x} Day{'s' if x > 1 else ''} Horizon (T+{x})",
         )
     with eval_col2:
-        st.info("Validation Method: Chronological 80% Train / 20% Test Split. Zero lookahead leakage.")
+        st.markdown(
+            """
+            <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; padding: 10px 14px; font-size: 0.78rem; color: #94a3b8; margin-top: 12px;">
+                Partition Method: Strict Chronological 80% Train / 20% Test Split. Zero lookahead leakage.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
-    # Run Multi-Model Evaluation Suite
-    with st.spinner(f"Training and benchmarking all ML models for {selected_stock}..."):
+    with st.spinner(f"Evaluating models for {selected_stock}..."):
         try:
             suite = evaluate_models_suite(
                 ohlcv_df=processed_df,
@@ -1055,24 +994,24 @@ elif page == "Model Evaluation":
     beats_baseline = suite["beats_baseline"]
     imp_pct = suite["improvement_pct"]
 
-    # BEST PERFORMING MODEL SHOWCASE CARD
-    best_chip = "chip-green" if beats_baseline else "chip-gold"
-    status_text = f"Outperforms Naive Baseline by {imp_pct}% MAE reduction" if beats_baseline else "Competes with Random Walk Naive Baseline"
+    # TOP PERFORMER CARD (Clean & Sharp)
+    best_chip = "chip-green" if beats_baseline else "chip-neutral"
+    status_text = f"Beats Naive Baseline by {imp_pct}% MAE reduction" if beats_baseline else "Competes with Random Walk Naive Baseline"
 
     st.markdown(
         f"""
-        <div style="background: linear-gradient(145deg, #101726 0%, #0d121c 100%); border: 1px solid #23344d; border-radius: 10px; padding: 22px 26px; margin-bottom: 22px;">
-            <div style="font-size: 0.76rem; font-weight: 700; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px;">
-                Top Out-of-Sample Test Performer (Chronological Validation)
+        <div class="forecast-panel">
+            <div style="font-size: 0.74rem; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px;">
+                Best Performing Model (Test Window)
             </div>
-            <div style="font-size: 1.85rem; font-weight: 800; color: #ffffff;">
+            <div style="font-size: 1.75rem; font-weight: 700; color: #ffffff;">
                 {best_res['engine_name']}
             </div>
             <div style="margin-top: 8px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
                 <span class="{best_chip}">{status_text}</span>
                 <span style="font-size: 0.82rem; color: #94a3b8;">
-                    Test MAE: <b class="mono-num" style="color: #ffffff;">{currency_sym}{best_res['mae']:.2f}</b> · 
-                    RMSE: <b class="mono-num" style="color: #ffffff;">{currency_sym}{best_res['rmse']:.2f}</b> · 
+                    Test MAE: <b class="mono-num" style="color: #ffffff;">{currency_sym}{best_res['mae']:.2f}</b> | 
+                    RMSE: <b class="mono-num" style="color: #ffffff;">{currency_sym}{best_res['rmse']:.2f}</b> | 
                     Directional Accuracy: <b class="mono-num" style="color: #ffffff;">{best_res['directional_accuracy_pct']:.1f}%</b>
                 </span>
             </div>
@@ -1082,27 +1021,25 @@ elif page == "Model Evaluation":
     )
 
     # Comparative Model Scorecard Table
-    st.markdown('<p class="term-header">Comprehensive Model Comparison Table</p>', unsafe_allow_html=True)
+    st.markdown('<p class="section-label">Model Comparison Scorecard</p>', unsafe_allow_html=True)
     st.dataframe(comp_df, use_container_width=True)
 
     # Actual vs Predicted Multi-Model Overlay Chart
-    st.markdown('<p class="term-header">Actual vs. Multi-Model Predictions (Test Window)</p>', unsafe_allow_html=True)
+    st.markdown('<p class="section-label">Actual vs. Multi-Model Predictions (Test Window)</p>', unsafe_allow_html=True)
     
     comb_viz = suite["combined_viz_df"]
     fig_comp = go.Figure()
     
-    # Ground truth
     fig_comp.add_trace(
         go.Scatter(
             x=comb_viz.index,
             y=comb_viz["Actual_Close"],
             name="Actual Close",
             mode="lines+markers",
-            line=dict(color="#38bdf8", width=2.5),
+            line=dict(color="#38bdf8", width=2),
             marker=dict(size=4),
         )
     )
-    # Naive Baseline
     fig_comp.add_trace(
         go.Scatter(
             x=comb_viz.index,
@@ -1112,7 +1049,6 @@ elif page == "Model Evaluation":
             line=dict(color="#64748b", width=1.5, dash="dot"),
         )
     )
-    # Models
     colors = {"Linear Regression": "#f59e0b", "Random Forest": "#10b981", "Gradient Boosting": "#a78bfa"}
     for m in ["Linear Regression", "Random Forest", "Gradient Boosting"]:
         col = f"Pred_{m}"
@@ -1123,32 +1059,32 @@ elif page == "Model Evaluation":
                     y=comb_viz[col],
                     name=m,
                     mode="lines",
-                    line=dict(color=colors.get(m, "#cbd5e1"), width=1.8, dash="dash"),
+                    line=dict(color=colors.get(m, "#cbd5e1"), width=1.6, dash="dash"),
                 )
             )
 
     fig_comp.update_layout(
         **_plotly_layout(
             f"{selected_stock}: Ground Truth vs. All Models over Out-of-Sample Test Window",
-            height=420,
+            height=400,
         ),
         xaxis_title="Date",
         yaxis_title=f"Price ({currency_sym})",
     )
     st.plotly_chart(fig_comp, use_container_width=True)
 
-    # Academic Evaluation Insights
-    st.markdown('<p class="term-header">Academic Methodology & Metric Definitions</p>', unsafe_allow_html=True)
+    # Academic Methodology
+    st.markdown('<p class="section-label">Methodology & Baseline Notes</p>', unsafe_allow_html=True)
     e_col1, e_col2 = st.columns(2)
     with e_col1:
         st.markdown(
             f"""
-            <div style="background: #0d121d; border: 1px solid var(--border-subtle); border-radius: 8px; padding: 18px 20px;">
-                <div style="font-weight: 700; font-size: 0.9rem; color: #f8fafc; margin-bottom: 8px;">
+            <div class="metric-card">
+                <div style="font-weight: 600; font-size: 0.88rem; color: #f8fafc; margin-bottom: 6px;">
                     Chronological Train/Test Partitioning
                 </div>
-                <p style="font-size: 0.82rem; color: #94a3b8; line-height: 1.5; margin: 0;">
-                    Unlike standard machine learning datasets where random $k$-fold cross-validation is permitted, time-series forecasting requires strict chronological splitting. Shuffling rows causes <b>lookahead data leakage</b>, where past forecasts use future price information. StockSense uses the initial 80% chronological observations for training and strictly reserves the trailing 20% for testing.
+                <p style="font-size: 0.8rem; color: #94a3b8; line-height: 1.5; margin: 0;">
+                    Unlike standard cross-sectional ML tasks where random cross-validation is standard, financial time-series strictly requires chronological ordering. Shuffling rows causes <b>lookahead data leakage</b>, where past predictions use future information. StockSense uses the first 80% chronological observations for training and reserves the trailing 20% strictly for testing.
                 </p>
             </div>
             """,
@@ -1157,12 +1093,12 @@ elif page == "Model Evaluation":
     with e_col2:
         st.markdown(
             f"""
-            <div style="background: #0d121d; border: 1px solid var(--border-subtle); border-radius: 8px; padding: 18px 20px;">
-                <div style="font-weight: 700; font-size: 0.9rem; color: #f8fafc; margin-bottom: 8px;">
+            <div class="metric-card">
+                <div style="font-weight: 600; font-size: 0.88rem; color: #f8fafc; margin-bottom: 6px;">
                     Role of the Persistence Baseline
                 </div>
-                <p style="font-size: 0.82rem; color: #94a3b8; line-height: 1.5; margin: 0;">
-                    In financial econometrics (Fama's Efficient Market Hypothesis), daily stock prices closely resemble a martingale process ($Price_t \\approx Price_{t-1} + \\epsilon$). Comparing machine learning models against a <b>Naive Persistence Baseline</b> ensures that models are evaluated for genuine statistical edge rather than merely tracking autocorrelation.
+                <p style="font-size: 0.8rem; color: #94a3b8; line-height: 1.5; margin: 0;">
+                    Under Eugene Fama's Efficient Market Hypothesis, asset prices closely resemble a martingale process ($Price_t \\approx Price_{t-1} + \\epsilon$). Comparing models against a <b>Naive Persistence Baseline</b> ensures that models are evaluated for genuine statistical edge rather than merely tracking autocorrelation.
                 </p>
             </div>
             """,
@@ -1171,22 +1107,21 @@ elif page == "Model Evaluation":
 
 
 # ══════════════════════════════════════════════════════════════
-# PAGE 4: PROJECT INFORMATION (ACADEMIC ABL DOSSIER)
+# PAGE 4: PROJECT INFORMATION (ACADEMIC DOSSIER)
 # ══════════════════════════════════════════════════════════════
 elif page == "Project Information":
-    st.markdown("### Project Information: Academic ABL Dossier")
-    st.caption("StockSense – Big Data Analytics in Stock Market Prediction")
+    st.markdown("### Project Architecture & Methodology")
+    st.caption("StockSense | Big Data Analytics in Stock Market Prediction")
     st.markdown("---")
 
-    # Problem Statement & Solution
     p_col1, p_col2 = st.columns(2)
     with p_col1:
         st.markdown(
             """
-            <div class="kpi-card" style="height: 100%;">
-                <div class="kpi-label">Problem Statement</div>
-                <p style="font-size: 0.84rem; color: #cbd5e1; line-height: 1.6; margin-top: 6px;">
-                    Financial markets generate massive volumes of continuous high-frequency tick data. Conventional single-threaded in-memory tools like Pandas fail to scale due to memory limits (OOM errors) and lack distributed windowing capabilities. Moreover, financial time-series exhibit extreme non-stationarity, noise, and autocorrelation, requiring strict data preparation, leakage prevention, and robust machine learning modeling.
+            <div class="metric-card" style="height: 100%;">
+                <div class="metric-title">Problem Statement</div>
+                <p style="font-size: 0.82rem; color: #cbd5e1; line-height: 1.5; margin-top: 6px;">
+                    Financial markets generate massive volumes of high-frequency tick data. Standard single-threaded in-memory tools like Pandas fail to scale due to memory limits (OOM errors) and lack distributed windowing capabilities. Moreover, financial time-series exhibit extreme non-stationarity, noise, and autocorrelation, requiring strict data preparation, leakage prevention, and robust machine learning modeling.
                 </p>
             </div>
             """,
@@ -1195,10 +1130,10 @@ elif page == "Project Information":
     with p_col2:
         st.markdown(
             """
-            <div class="kpi-card" style="height: 100%;">
-                <div class="kpi-label">Proposed Solution</div>
-                <p style="font-size: 0.84rem; color: #cbd5e1; line-height: 1.6; margin-top: 6px;">
-                    StockSense implements an end-to-end distributed Big Data architecture using <b>Apache PySpark 3.5</b> and <b>Apache Parquet</b> columnar storage. It executes distributed schema validation, IQR outlier detection, and Window-based feature engineering (lagged prices, rolling moving averages, volatility). It connects seamlessly to chronologically validated machine learning models evaluated against persistence benchmarks.
+            <div class="metric-card" style="height: 100%;">
+                <div class="metric-title">Proposed Solution</div>
+                <p style="font-size: 0.82rem; color: #cbd5e1; line-height: 1.5; margin-top: 6px;">
+                    StockSense implements an end-to-end distributed Big Data architecture using <b>Apache PySpark 3.5</b> and <b>Apache Parquet</b> columnar storage. It executes distributed schema validation, IQR outlier detection, and Window-based feature engineering (lagged prices, moving averages, volatility). It connects directly to chronologically validated machine learning models evaluated against persistence benchmarks.
                 </p>
             </div>
             """,
@@ -1206,14 +1141,14 @@ elif page == "Project Information":
         )
 
     # 5Vs of Big Data
-    st.markdown('<p class="term-header">5Vs of Big Data in Stock Market Prediction</p>', unsafe_allow_html=True)
+    st.markdown('<p class="section-label">5Vs of Big Data in Stock Market Prediction</p>', unsafe_allow_html=True)
     v1, v2, v3, v4, v5 = st.columns(5)
     with v1:
         st.markdown(
             """
-            <div class="kpi-card">
-                <div style="font-size: 0.78rem; font-weight: 700; color: #38bdf8;">VOLUME</div>
-                <div style="font-size: 0.76rem; color: #94a3b8; margin-top: 4px;">Millions of market transactions and trade order books.</div>
+            <div class="metric-card">
+                <div style="font-size: 0.74rem; font-weight: 700; color: #38bdf8;">VOLUME</div>
+                <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 4px;">Multi-year historical records and trade volumes across global exchanges.</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -1221,9 +1156,9 @@ elif page == "Project Information":
     with v2:
         st.markdown(
             """
-            <div class="kpi-card">
-                <div style="font-size: 0.78rem; font-weight: 700; color: #38bdf8;">VELOCITY</div>
-                <div style="font-size: 0.76rem; color: #94a3b8; margin-top: 4px;">Millisecond price updates and streaming ticker ticks.</div>
+            <div class="metric-card">
+                <div style="font-size: 0.74rem; font-weight: 700; color: #38bdf8;">VELOCITY</div>
+                <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 4px;">Rapid price updates and dynamic ingestion caching.</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -1231,9 +1166,9 @@ elif page == "Project Information":
     with v3:
         st.markdown(
             """
-            <div class="kpi-card">
-                <div style="font-size: 0.78rem; font-weight: 700; color: #38bdf8;">VARIETY</div>
-                <div style="font-size: 0.76rem; color: #94a3b8; margin-top: 4px;">Structured OHLCV, trade volume, and technical indicators.</div>
+            <div class="metric-card">
+                <div style="font-size: 0.74rem; font-weight: 700; color: #38bdf8;">VARIETY</div>
+                <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 4px;">Columnar Parquet, structured CSV, and nested market arrays.</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -1241,9 +1176,9 @@ elif page == "Project Information":
     with v4:
         st.markdown(
             """
-            <div class="kpi-card">
-                <div style="font-size: 0.78rem; font-weight: 700; color: #38bdf8;">VERACITY</div>
-                <div style="font-size: 0.76rem; color: #94a3b8; margin-top: 4px;">Handling missing values, market anomalies, and stock splits.</div>
+            <div class="metric-card">
+                <div style="font-size: 0.74rem; font-weight: 700; color: #38bdf8;">VERACITY</div>
+                <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 4px;">Deduplication, holiday imputation, and IQR anomaly tagging.</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -1251,35 +1186,40 @@ elif page == "Project Information":
     with v5:
         st.markdown(
             """
-            <div class="kpi-card">
-                <div style="font-size: 0.78rem; font-weight: 700; color: #38bdf8;">VALUE</div>
-                <div style="font-size: 0.76rem; color: #94a3b8; margin-top: 4px;">Actionable directional price forecasts and risk mitigation.</div>
+            <div class="metric-card">
+                <div style="font-size: 0.74rem; font-weight: 700; color: #38bdf8;">VALUE</div>
+                <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 4px;">Empirically verified price forecasts and baseline benchmarks.</div>
             </div>
             """,
             unsafe_allow_html=True,
         )
 
-    # System Architecture Diagram
-    st.markdown('<p class="term-header">End-to-End System Architecture</p>', unsafe_allow_html=True)
+    # Architecture Diagram
+    st.markdown('<p class="section-label">System Architecture</p>', unsafe_allow_html=True)
     st.markdown(
         """
-        <div style="background: #0f1523; border: 1px solid var(--border-subtle); border-radius: 8px; padding: 20px; font-family: monospace; font-size: 0.85rem; color: #cbd5e1; line-height: 1.7;">
+        <div style="background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 6px; padding: 18px; font-family: monospace; font-size: 0.82rem; color: #cbd5e1; line-height: 1.6;">
             [Stock Data Sources: Yahoo Finance API / Offline Parquet]
-                                      ↓
+                                      |
+                                      v
             [Data Ingestion Manager: data_fetcher.py]
-                                      ↓
+                                      |
+                                      v
             [Apache PySpark 3.5 Distributed ETL: spark_engine.py]
-              ├─ Schema Validation & Missing Value Imputation
-              ├─ IQR Outlier Detection (Flagged, Original Preserved)
-              └─ PySpark Window Aggregations (Lags 1-5, SMA 5-50, Volatility)
-                                      ↓
+              |-- Schema Validation & Missing Value Imputation
+              |-- IQR Outlier Detection (Flagged in Outlier_Flag)
+              `-- PySpark Window Aggregations (Lags 1-5, SMA 5-50, Volatility)
+                                      |
+                                      v
             [Columnar Storage: Snappy Compressed Parquet (data/processed/)]
-                                      ↓
+                                      |
+                                      v
             [Machine Learning Engine: ml_predictor.py]
-              ├─ Strict Chronological 80/20 Train/Test Split
-              ├─ Estimators: Linear Regression, Random Forest, Gradient Boosting
-              └─ Evaluation Metrics vs. Naive Persistence Baseline (MAE, RMSE, R², Dir. Acc.)
-                                      ↓
+              |-- Strict Chronological 80/20 Train/Test Split
+              |-- Estimators: Linear Regression, Random Forest, Gradient Boosting
+              `-- Evaluation Metrics vs. Naive Baseline (MAE, RMSE, R2, Dir. Acc.)
+                                      |
+                                      v
             [Streamlit Prediction Terminal: dashboard/app.py]
         </div>
         """,
@@ -1287,16 +1227,16 @@ elif page == "Project Information":
     )
 
     # Technologies Used & Roles
-    st.markdown('<p class="term-header">Technologies & Architectural Roles</p>', unsafe_allow_html=True)
+    st.markdown('<p class="section-label">Technologies & Roles</p>', unsafe_allow_html=True)
     t1, t2 = st.columns(2)
     with t1:
         st.markdown(
             """
-            <div class="kpi-card" style="height: 100%;">
-                <div style="font-weight: 700; font-size: 0.88rem; color: #38bdf8; margin-bottom: 6px;">Role of Apache Spark</div>
-                <p style="font-size: 0.82rem; color: #94a3b8; line-height: 1.5; margin: 0;">
+            <div class="metric-card" style="height: 100%;">
+                <div style="font-weight: 600; font-size: 0.85rem; color: #cbd5e1; margin-bottom: 6px;">Role of Apache Spark</div>
+                <p style="font-size: 0.8rem; color: #94a3b8; line-height: 1.5; margin: 0;">
                     • <b>Catalyst Query Optimizer:</b> Translates high-level DataFrame transformations into optimized physical execution plans.<br>
-                    • <b>Distributed Window Operations:</b> Computes rolling averages and lags across chronological partitions without cross-node network bottlenecking.<br>
+                    • <b>Distributed Window Operations:</b> Computes rolling averages and lags across partitions without cross-node network bottlenecking.<br>
                     • <b>Out-of-Core Processing:</b> Scales computation seamlessly beyond single-node physical RAM boundaries.
                 </p>
             </div>
@@ -1306,11 +1246,11 @@ elif page == "Project Information":
     with t2:
         st.markdown(
             """
-            <div class="kpi-card" style="height: 100%;">
-                <div style="font-weight: 700; font-size: 0.88rem; color: #38bdf8; margin-bottom: 6px;">Role of Machine Learning</div>
-                <p style="font-size: 0.82rem; color: #94a3b8; line-height: 1.5; margin: 0;">
+            <div class="metric-card" style="height: 100%;">
+                <div style="font-weight: 600; font-size: 0.85rem; color: #cbd5e1; margin-bottom: 6px;">Role of Machine Learning</div>
+                <p style="font-size: 0.8rem; color: #94a3b8; line-height: 1.5; margin: 0;">
                     • <b>Nonlinear Pattern Recognition:</b> Tree ensembles capture non-linear interactions between momentum, moving averages, and volatility.<br>
-                    • <b>Directional Conviction:</b> Identifies probabilistic price movement direction over selected trading horizons.<br>
+                    • <b>Directional Movement:</b> Identifies probabilistic price movement direction over selected trading horizons.<br>
                     • <b>Empirical Benchmarking:</b> Grounds model performance against persistence baselines to avoid inflated accuracy claims.
                 </p>
             </div>
@@ -1319,15 +1259,15 @@ elif page == "Project Information":
         )
 
     # Limitations & Future Scope
-    st.markdown('<p class="term-header">Academic Limitations & Future Scope</p>', unsafe_allow_html=True)
+    st.markdown('<p class="section-label">Limitations & Future Scope</p>', unsafe_allow_html=True)
     lim1, lim2 = st.columns(2)
     with lim1:
         st.markdown(
             """
-            <div class="kpi-card">
-                <div style="font-weight: 700; font-size: 0.88rem; color: #f43f5e; margin-bottom: 6px;">System Limitations</div>
-                <div style="font-size: 0.82rem; color: #94a3b8; line-height: 1.5;">
-                    • Models predict based purely on historical technical price action; unpredictable macroeconomic shocks or earnings announcements are exogenous.<br>
+            <div class="metric-card">
+                <div style="font-weight: 600; font-size: 0.85rem; color: #ef4444; margin-bottom: 6px;">System Limitations</div>
+                <div style="font-size: 0.8rem; color: #94a3b8; line-height: 1.5;">
+                    • Models predict based on historical technical price action; unpredictable macroeconomic shocks or earnings announcements are exogenous.<br>
                     • Local Spark instance operates in multi-threaded local mode (`local[2]`) rather than a multi-node distributed cluster.
                 </div>
             </div>
@@ -1337,9 +1277,9 @@ elif page == "Project Information":
     with lim2:
         st.markdown(
             """
-            <div class="kpi-card">
-                <div style="font-weight: 700; font-size: 0.88rem; color: #10b981; margin-bottom: 6px;">Future Scope</div>
-                <div style="font-size: 0.82rem; color: #94a3b8; line-height: 1.5;">
+            <div class="metric-card">
+                <div style="font-weight: 600; font-size: 0.85rem; color: #10b981; margin-bottom: 6px;">Future Scope</div>
+                <div style="font-size: 0.8rem; color: #94a3b8; line-height: 1.5;">
                     • Ingestion of real-time streaming market tick feeds via <b>Apache Kafka</b> and <b>Spark Structured Streaming</b>.<br>
                     • Integration of natural language processing (FinBERT) for sentiment analysis from financial news feeds.<br>
                     • Deployment on cloud-managed distributed clusters (AWS EMR or Databricks).
